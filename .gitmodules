@@ -1,0 +1,3 @@
+[submodule "lib/lua_emitter"]
+	path = lib/lua_emitter
+	url = git@github.com:friesencr/lua_emitter.git
