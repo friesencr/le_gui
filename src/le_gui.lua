@@ -26,7 +26,7 @@ Gui.default_styles = {
 	padding_bottom = 0,
 	padding_right = 0,
 	border_width = 0,
-	border_color = nil,
+	border_color = Vec4(0,0,0,1),
 	background_color = nil,
 	background_image = nil, --texture
 	color = nil,
@@ -121,6 +121,7 @@ function Gui:render()
 
 	SetBuffer(BackBuffer())
 	_.each(sorted, function(x)
+		SetColor(Vec4(1,1,1,1))
 		DrawImage(x.color_buffer,
 			x.absolute_x,
 			x.height + x.absolute_y,

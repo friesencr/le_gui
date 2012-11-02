@@ -84,7 +84,6 @@ function Container:apply_styles_and_classes()
 end
 
 function Container:apply_state(state)
-	AppLog('apply ' .. state .. ' to ' .. self.name)
 	if self.state[state] then
 		table_merge(self, self.state[state])
 	end
@@ -202,9 +201,8 @@ end
 
 function Container:draw_border()
 	-- print_table(self)
+	SetColor(self.border_color)
 	if self.border_width > 0 then
-		AppLog('setting border color')
-		SetColor(self.border_color)
 
 		local top_left = { x=0, y=0 }
 		local top_right = { x=self.width, y=0 }
@@ -251,6 +249,7 @@ function Container:draw_text()
 		SetFont(self.font)
 	end
 	if self.text then
+		SetColor(self.color)
 		-- only calculate if needed
 		if self.last_text ~= self.text then
 
@@ -296,11 +295,6 @@ function Container:draw_text()
 			end
 		end
 
-		if self.color then 
-			AppLog('setting font color')
-			SetColor(self.color)
-		end
-
 		-- render text
 		for y,line in ipairs(self.lines_of_text) do
 			local x_offset = 0
@@ -335,13 +329,12 @@ function Container:draw_background()
 		)
 	end
 	if self.background_color then
-		AppLog('setting background color')
 		SetColor(self.background_color)
 		DrawRect(
-			print_args(0 + self.border_width,
+			0 + self.border_width,
 			0 + self.border_width,
 			self.width - self.border_width * 2,
-			self.height - self.border_width * 2)
+			self.height - self.border_width * 2
 		)
 	end
 end
@@ -361,7 +354,6 @@ function Container:set_states()
 		state_changes = state_changes + 1
 		self.current_state.hover = hit
 		if hit then
-			AppLog(self.name .. ' has is ' .. tostring(hit))
 			self:apply_state('hover')
 		else
 			self.current_state.hover = false
@@ -458,8 +450,11 @@ function Container:render()
 		self.buffer = CreateBuffer(self.height, self.width, BUFFER_COLOR)
 	end
 	SetBuffer(self.buffer)
-	self:draw_border()
+	-- ClearBuffer(BUFFER_COLOR)
+	-- SetColor((self.parent and self.parent.background_color) or Vec4(0,0,0,1))
+	-- DrawRect(0,0,self.height, self.width)
 	self:draw_background()
+	self:draw_border()
 	self:draw_text()
 	self.color_buffer = GetColorBuffer(self.buffer)
 end
