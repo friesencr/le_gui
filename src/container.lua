@@ -1,71 +1,36 @@
-require "scripts/table"
 require "scripts/constants/keycodes"
-require "underscore"
+require "scripts/constants/engine_const"
+require "lib/lua_emitter/src/emitter"
+require "lib/underscore"
 
 local _ = Underscore:new()
 
-Emitter = {}
-
-function Emitter:create()
-	local obj = {}
-	obj.callbacks = {}
-	obj.on = Emitter.on
-	obj.off = Emitter.off
-	obj.trigger = Emitter.trigger
-	return obj
-end
-
-function Emitter:on(event, callback)
-	local event_callbacks = self.callbacks[event]
-	if not event_callbacks then
-		event_callbacks = {}
-		self.callbacks[event] = event_callbacks
-	end
-	table.insert(event_callbacks, callback)
-end
-
-function Emitter:off(event, callback)
-	if not callback then
-		self.callbacks[event] = {}
-	else
-		local event_callbacks = self.callbacks[event]
-		local do_continue = event_callbacks
-		for i,v in ipairs(event_callbacks) do
-			if v == callback then
-				table.remove(event_callbacks, i)
-				break
-			end
-		end
-	end
-end
-
-local function fire_callbacks(ele, event, e, arg)
-	local event_callbacks = ele.callbacks[event]
-	if event_callbacks then
-		local i = 1
-		while not e.stop_propagation and i <= # event_callbacks do
-			local callback = event_callbacks[i]
-			callback(e, arg)
-			i = i+1
-		end
-	end
-	if ele.parent then fire_callbacks(ele.parent, event, e, arg) end
-end
-
-function Emitter:trigger(event, arg)
-	local e = {
-		name = event,
-		target = self,
-		stop_propagation = false
-	}
-	fire_callbacks(self, event, e, arg)
-end
-
 local Container = { }
 
-Container.__index = Container
+function print_table(obj) AppLog(table.ToString(obj, 'table', true)) end
+function print_args(...)
+	local arg = {...}
+	_.each(arg, function(x) AppLog(x) end)
+	return unpack(arg)
+end
 
-function Container:create(attributes)
+local function table_merge(dest, source)
+	for k,v in pairs(source) do
+		dest[k] = v
+	end
+end
+
+local styles_mt = {
+	__index = function(table, key)
+		return rawget(table._values, key)
+	end,
+	__newindex = function(table, key, value)
+		rawset(table._values, key, value)
+		rawset(table,'_changed',true)
+	end
+}
+
+function Container:new(values)
 	local obj = {
 		parent = nil,
 		children = {},
@@ -73,42 +38,95 @@ function Container:create(attributes)
 		state = {},
 		current_state = {},
 		callbacks = {},
+		text = nil,
+		class = {},
+		state = {},
+		styles = {},
 	}
-	obj.attributes = attributes or {}
-	table.Merge(self, Gui.default_attributes)
-	table.Merge(obj, Emitter:create())
-	setmetatable(obj, Container)
+
+	obj.apply_styles_and_classes = Container.apply_styles_and_classes
+	obj.apply_state = Container.apply_state
+	obj.calculate_bounds = Container.calculate_bounds
+	obj.draw_border = Container.draw_border
+	obj.draw_text = Container.draw_text
+	obj.draw_background = Container.draw_background
+	obj.set_states = Container.set_states
+	obj.capture_events = Container.capture_events
+	obj.add_child = Container.add_child
+	obj.add_children = Container.add_children
+	obj.pre_init = Container.pre_init
+	obj.init = Container.init
+	obj.pre_render = Container.pre_render
+	obj.render = Container.render
+	obj.find_parent = Container.find_parent
+	obj.find_child = Container.find_child
+
+	table_merge(obj, Gui.default_styles)
+	table_merge(obj, values)
+	Emitter:new(obj)
 	obj._identity = Gui.id
 	Gui.id = Gui.id + 1
+	local _styles = obj.styles
+	obj.styles = { _values = {} }
+	setmetatable(obj.styles, styles_mt)
+	table_merge(obj.styles, _styles)
+	obj:apply_styles_and_classes()
 	table.insert(Gui.elements, obj)
 	return obj
 end
 
-function Container:apply_attributes_and_classes(source)
-	for i,class in ipairs(source.class or {}) do
-		table.Merge(self, class)
+function Container:apply_styles_and_classes()
+	table_merge(self, Gui.default_styles)
+	for i,class in ipairs(self.class) do
+		table_merge(self, class)
 	end
-	table.Merge(self, source.attributes or {})
+	table_merge(self, rawget(self.styles, '_values'))
 end
 
-function Container:apply_states()
-	for k,v in pairs(self.state) do
-		if self.current_state[k] then
-			local x = {
-				attributes = v,
-				class = v.class
-			}
-			self:apply_attributes_and_classes(x)
-		end
+function Container:apply_state(state)
+	AppLog('apply ' .. state .. ' to ' .. self.name)
+	if self.state[state] then
+		table_merge(self, self.state[state])
 	end
+	table_merge(self, rawget(self.styles, '_values'))
+end
+
+local function str_split(str, sSeparator, nMax, bRegexp)
+	assert(sSeparator ~= '')
+	assert(nMax == nil or nMax >= 1)
+
+	local aRecord = {}
+
+	if str:len() > 0 then
+		local bPlain = not bRegexp
+		nMax = nMax or -1
+
+		local nField=1 nStart=1
+		local nFirst,nLast = str:find(sSeparator, nStart, bPlain)
+		while nFirst and nMax ~= 0 do
+			aRecord[nField] = str:sub(nStart, nFirst-1)
+			nField = nField+1
+			nStart = nLast+1
+			nFirst,nLast = str:find(sSeparator, nStart, bPlain)
+			nMax = nMax-1
+		end
+		aRecord[nField] = str:sub(nStart)
+	end
+
+	return aRecord
 end
 
 function Container:calculate_bounds()
 	local parent_width = self.parent and self.parent.adjusted_width or GraphicsWidth()
 	local parent_height = self.parent and self.parent.adjusted_height or GraphicsHeight()
 
+	self.parent_width = parent_width
+	self.parent_height = parent_height
+
 	self.width = self.width or parent_width
-	self.width = self.width or parent_height
+	self.height = self.height or parent_height
+
+	-- AppLog(table.ToString(self, self._identity, true))
 
 	self.offset_x = self.border_width + self.padding_left
 	self.offset_y = self.border_width + self.padding_top
@@ -182,20 +200,16 @@ function Container:calculate_bounds()
 	}
 end
 
-function alert(val, message)
-	Notify(tostring(val)..(message or ''))
-	return val
-end
-
 function Container:draw_border()
+	-- print_table(self)
 	if self.border_width > 0 then
-		SetBlend(1)
+		AppLog('setting border color')
 		SetColor(self.border_color)
 
-		local top_left = self.coords.top_left
-		local top_right = self.coords.top_right
-		local bottom_left = self.coords.bottom_left
-		local bottom_right = self.coords.bottom_right
+		local top_left = { x=0, y=0 }
+		local top_right = { x=self.width, y=0 }
+		local bottom_left = { x=0, y=self.height }
+		local bottom_right = { x=self.width, y=self.height }
 
 		for width = 0, self.border_width - 1 do
 
@@ -229,7 +243,6 @@ function Container:draw_border()
 
 		end
 
-		SetBlend(0)
 	end
 end
 
@@ -238,13 +251,10 @@ function Container:draw_text()
 		SetFont(self.font)
 	end
 	if self.text then
-		SetBlend(1)
-		SetColor(self.color)
-
 		-- only calculate if needed
 		if self.last_text ~= self.text then
 
-			local words = string.split(self.text, ' ')
+			local words = str_split(self.text, ' ')
 			local text_x = 0
 			local lines = {
 				word_count = 0
@@ -286,6 +296,11 @@ function Container:draw_text()
 			end
 		end
 
+		if self.color then 
+			AppLog('setting font color')
+			SetColor(self.color)
+		end
+
 		-- render text
 		for y,line in ipairs(self.lines_of_text) do
 			local x_offset = 0
@@ -299,34 +314,39 @@ function Container:draw_text()
 			-- render every word on line
 			for i, word in ipairs(line) do
 				DrawText(word.text,
-					word.x + self.absolute_x + self.offset_x + x_offset,
-					((y - 1) * self.line_height) + self.absolute_y + self.offset_y
+					word.x + self.offset_x + x_offset + self.text_offset_x,
+					((y - 1) * self.line_height) + self.offset_y + self.text_offset_y
 				)
 			end
 		end
 
 		self.last_text = self.text
 
-		SetBlend(0)
 	end
 end
 
 function Container:draw_background()
-	SetBlend(1)
-	if self.background_color then
-		SetColor(self.background_color)
-		DrawRect(
-			self.absolute_x + self.border_width,
-			self.absolute_y + self.border_width,
-			self.width - self.border_width * 2,
-			self.height - self.border_width * 2
+	if self.background_image then
+		DrawImage(self.background_image,
+			0,
+			0,
+			self.width,
+			self.height
 		)
 	end
-	SetBlend(0)
+	if self.background_color then
+		AppLog('setting background color')
+		SetColor(self.background_color)
+		DrawRect(
+			print_args(0 + self.border_width,
+			0 + self.border_width,
+			self.width - self.border_width * 2,
+			self.height - self.border_width * 2)
+		)
+	end
 end
 
 function Container:set_states()
-
 	local hit = Gui.hit_test(
 		MouseX(),
 		MouseY(),
@@ -335,12 +355,41 @@ function Container:set_states()
 		self.coords.bottom_right.x,
 		self.coords.bottom_right.y
 	)
-	self.current_state.hover = hit
-	self.current_state.active = hit and MouseDown(MOUSE_LEFT) == 1
+
+	local state_changes = 0
+	if self.current_state.hover ~= hit then
+		state_changes = state_changes + 1
+		self.current_state.hover = hit
+		if hit then
+			AppLog(self.name .. ' has is ' .. tostring(hit))
+			self:apply_state('hover')
+		else
+			self.current_state.hover = false
+		end
+	end
+
+	local active = hit and MouseDown(MOUSE_LEFT) == 1
+	if self.current_state.active ~= active then
+		state_changes = state_changes + 1
+		self.current_state.active = active
+		if active then
+			self:apply_state('active')
+		else
+			self.current_state.active = false
+			if hit then
+				self:apply_styles_and_classes()
+				self:apply_state('hover')
+			end
+		end
+	end
+
+	if self.styles._changed or not self.current_state.hover and state_changes > 0 then
+		rawset(self.styles,'_changed', false)
+		self:apply_styles_and_classes()
+	end
 end
 
 function Container:capture_events(hit)
-
 	if self.mouse_in then
 		if hit == false and Gui.last_mouse_element == self then
 			self.mouse_in = false
@@ -386,7 +435,6 @@ function Container:add_children(children)
 end
 
 function Container:pre_init()
-	self:apply_attributes_and_classes(self)
 	self.zindex = self.parent and self.parent.zindex + 1 or 1
 	self:calculate_bounds()
 	_.each(self.children, function(x) x:pre_init() end)
@@ -394,7 +442,6 @@ end
 
 function Container:init()
 	self:set_states()
-	self:apply_states()
 	self:calculate_bounds()
 	_.each(self.children, function(x) x:init() end)
 end
@@ -405,11 +452,70 @@ function Container:pre_render()
 	_.each(self.children, function(x) x:pre_render() end)
 end
 
+local counter = 0
 function Container:render()
+	if not self.buffer then
+		self.buffer = CreateBuffer(self.height, self.width, BUFFER_COLOR)
+	end
+	SetBuffer(self.buffer)
 	self:draw_border()
 	self:draw_background()
 	self:draw_text()
+	self.color_buffer = GetColorBuffer(self.buffer)
 end
+
+-- function Container:cache_key()
+--	return {
+--		self.width,
+--		self.height,
+--		self.border_width,
+--		self.border_color,
+--		self.background_image,
+--		self.background_color,
+--		self.text,
+--		self.text_offset_y,
+--		self.font,
+--		self.color
+--	}
+-- end
+
+-- function Container:parent_cache_key()
+--	return {
+--		self.x,
+--		self.y
+--	}
+-- end
+
+-- function Container:expire_parent()
+--	local key = self:parent_cache_key()
+--	local expired = false
+--	if self.last_parent_cache and # self.parent_last_cache == # key then
+--		for i,v in ipairs(key) do
+--			expired = self.parent_last_cache[i] ~= key[i]
+--			if expired then break end
+--		end
+--	else
+--		expired = true
+--	end
+--	self.parent_last_cache = key
+--	return expired
+-- end
+
+-- function Container:expire_cache()
+--	local key = self:cache_key()
+--	local expired = false
+--	if self.last_cache and # self.last_cache == # key then
+--		for i,v in ipairs(key) do
+--			expired = self.last_cache[i] ~= key[i]
+--			if expired then break end
+--		end
+--	else
+--		expired = true
+--	end
+--	self.last_cache = key
+--	AppLog('expired ' .. tostring(expired))
+--	return expired
+-- end
 
 local function _search_parents(obj, predicate)
 	if obj then
@@ -437,31 +543,6 @@ end
 
 function Container:find_child(predicate)
 	return _search_children(self, predicate, {})
-end
-
-function string.split(str, sSeparator, nMax, bRegexp)
-	assert(sSeparator ~= '')
-	assert(nMax == nil or nMax >= 1)
-
-	local aRecord = {}
-
-	if str:len() > 0 then
-		local bPlain = not bRegexp
-		nMax = nMax or -1
-
-		local nField=1 nStart=1
-		local nFirst,nLast = str:find(sSeparator, nStart, bPlain)
-		while nFirst and nMax ~= 0 do
-			aRecord[nField] = str:sub(nStart, nFirst-1)
-			nField = nField+1
-			nStart = nLast+1
-			nFirst,nLast = str:find(sSeparator, nStart, bPlain)
-			nMax = nMax-1
-		end
-		aRecord[nField] = str:sub(nStart)
-	end
-
-	return aRecord
 end
 
 Gui.Container = Container

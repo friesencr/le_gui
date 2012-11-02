@@ -1,6 +1,8 @@
-require "scripts/table"
-require("scripts/hooks")
-require "underscore"
+assert(require("scripts/table"))
+assert(require("scripts/hooks"))
+assert(require("lib/underscore"))
+assert(require("lib/lua_promise/src/promise"))
+assert(require("lib/tween/tween"))
 
 local _ = Underscore:new()
 
@@ -14,7 +16,7 @@ function Gui.hit_test(x, y, x1, y1, x2, y2)
 	return hit
 end
 
-Gui.default_attributes = {
+Gui.default_styles = {
 	x = 0,
 	y = 0,
 	height = nil,
@@ -27,18 +29,13 @@ Gui.default_attributes = {
 	border_color = nil,
 	background_color = nil,
 	background_image = nil, --texture
-	background_image_position_top = 0,
-	background_image_position_left = 0,
-	background_image_position_bottom = nil,
-	background_image_position_right = nil,
-	background_image_align = nil,
 	color = nil,
 	line_height = 14,
 	font = nil,
-	class = {},
 	horizontal_align = 'left',
-	states = {},
-	current_states = {}
+	text_align = 'left',
+	text_offset_x = 0,
+	text_offset_y = 0,
 }
 
 Gui.events = {
@@ -76,7 +73,7 @@ function Gui:capture_events()
 	end
 
 	-- detect mouse click
-	hit_element = _(self.elements):chain()
+	local hit_element = _(self.elements):chain()
 		:sort(function(x, y) return x.zindex > y.zindex end)
 		:detect(test)
 		:value()
@@ -114,10 +111,27 @@ function Gui:pre_render()
 end
 
 function Gui:render()
+	SetBlend(1)
 	local sorted = _.sort(self.elements, function(x, y)
 		return x.zindex < y.zindex
 	end)
-	_.each(sorted, function(x) x:render() end)
+	_.each(sorted, function(x) 
+		x:render() 
+	end)
+
+	SetBuffer(BackBuffer())
+	_.each(sorted, function(x)
+		DrawImage(x.color_buffer,
+			x.absolute_x,
+			x.height + x.absolute_y,
+			x.width,
+			-x.height
+		)
+	end)
+
+	SetBuffer(BackBuffer())
+	mouse:draw()
+	SetBlend(0)
 end
 
 local function on_flip()
@@ -132,6 +146,8 @@ end
 
 function Gui.setup(settings)
 	Gui.settings = settings
+	HideMouse()
+	mouse = mouse or Mouse:new()
 	AddHook("Flip", on_flip)
 end
 
@@ -140,4 +156,4 @@ function Gui.free()
 	RemoveHook("Flip", on_flip)
 end
 
-require "scripts/my_gui/container"
+require "lib/le_gui/src/container"
