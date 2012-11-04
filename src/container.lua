@@ -6,6 +6,7 @@ require "lib/underscore"
 local _ = Underscore:new()
 
 local Container = { }
+Container.__index = Container
 
 function print_table(obj) AppLog(table.ToString(obj, 'table', true)) end
 function print_args(...)
@@ -18,6 +19,20 @@ local function table_merge(dest, source)
 	for k,v in pairs(source) do
 		dest[k] = v
 	end
+end
+
+local function compare_tables(a, b)
+	local same = true
+	if a == b then same = true
+	elseif (a and not b) or (not a and b) then same = false 
+	elseif (#a ~= #b) then same = false
+	else
+		for i,v in ipairs(b) do
+			same = a[i] ~= v
+			if not same then break end
+		end
+	end
+	return same
 end
 
 local styles_mt = {
@@ -44,22 +59,24 @@ function Container:new(values)
 		styles = {},
 	}
 
-	obj.apply_styles_and_classes = Container.apply_styles_and_classes
-	obj.apply_state = Container.apply_state
-	obj.calculate_bounds = Container.calculate_bounds
-	obj.draw_border = Container.draw_border
-	obj.draw_text = Container.draw_text
-	obj.draw_background = Container.draw_background
-	obj.set_states = Container.set_states
-	obj.capture_events = Container.capture_events
-	obj.add_child = Container.add_child
-	obj.add_children = Container.add_children
-	obj.pre_init = Container.pre_init
-	obj.init = Container.init
-	obj.pre_render = Container.pre_render
-	obj.render = Container.render
-	obj.find_parent = Container.find_parent
-	obj.find_child = Container.find_child
+	-- obj.apply_styles_and_classes = Container.apply_styles_and_classes
+	-- obj.apply_state = Container.apply_state
+	-- obj.calculate_bounds = Container.calculate_bounds
+	-- obj.draw_border = Container.draw_border
+	-- obj.draw_text = Container.draw_text
+	-- obj.draw_background = Container.draw_background
+	-- obj.set_states = Container.set_states
+	-- obj.capture_events = Container.capture_events
+	-- obj.add_child = Container.add_child
+	-- obj.add_children = Container.add_children
+	-- obj.pre_init = Container.pre_init
+	-- obj.init = Container.init
+	-- obj.pre_render = Container.pre_render
+	-- obj.render = Container.render
+	-- obj.find_parent = Container.find_parent
+	-- obj.find_child = Container.find_child
+	--
+	setmetatable(obj, Container)
 
 	table_merge(obj, Gui.default_styles)
 	table_merge(obj, values)
@@ -91,6 +108,7 @@ function Container:apply_state(state)
 end
 
 local function str_split(str, sSeparator, nMax, bRegexp)
+	assert(str)
 	assert(sSeparator ~= '')
 	assert(nMax == nil or nMax >= 1)
 
@@ -115,42 +133,26 @@ local function str_split(str, sSeparator, nMax, bRegexp)
 	return aRecord
 end
 
-function Container:calculate_bounds()
-	local parent_width = self.parent and self.parent.adjusted_width or GraphicsWidth()
-	local parent_height = self.parent and self.parent.adjusted_height or GraphicsHeight()
+function Container:set_child_position(child)
+	assert(child)
+	if child.display == 'block' then
 
-	self.parent_width = parent_width
-	self.parent_height = parent_height
+	elseif child.display == 'inline' then
 
-	self.width = self.width or parent_width
-	self.height = self.height or parent_height
+	end
+end
 
-	-- AppLog(table.ToString(self, self._identity, true))
-
+function Container:calculate_position()
 	self.offset_x = self.border_width + self.padding_left
 	self.offset_y = self.border_width + self.padding_top
 	self.adjusted_x = self.x + self.offset_x
 	self.adjusted_y = self.y + self.offset_y
 
-	-- Calculate adjusted width
-	self.adjusted_width = self.width -
-		self.padding_left -
-		self.padding_right -
-		self.border_width * 2
-
-	-- Calculate adjusted height
-	self.adjusted_height = self.height -
-		self.padding_top -
-		self.padding_bottom -
-		self.border_width * 2
-
-	-- Calculate X
-	-- figure aligment
 	local alignment_offset_x = 0
 	if self.horizontal_align == 'center' then
-		alignment_offset_x = (parent_width - self.width) / 2
+		alignment_offset_x = (self.parent_width - self.width) / 2
 	elseif self.horizontal_align == 'right' then
-		alignment_offset_x = parent_width - self.width
+		alignment_offset_x = self.parent_width - self.width
 	end
 
 	self.alignment_offset_x = alignment_offset_x
@@ -199,15 +201,59 @@ function Container:calculate_bounds()
 	}
 end
 
+function Container:calculate_bounds()
+	local parent_width = self.parent and self.parent.adjusted_width or GraphicsWidth()
+	local parent_height = self.parent and self.parent.adjusted_height or GraphicsHeight()
+
+	self.parent_width = parent_width
+	self.parent_height = parent_height
+
+	-- Calculate width
+	if not self.width then
+		self.actual_width = self.parent_width
+		if self.dispaly == "inline" and self.text then
+			local text_width = TextWidth(self.text) + self.padding_left + 
+				self.padding_right + self.border_width * 2
+
+			if text_width < parent_width then
+				self.width = text_width
+			end
+		end
+	end
+
+	-- Calculate adjusted width
+	self.adjusted_width = self.width -
+		self.padding_left -
+		self.padding_right -
+		self.border_width * 2
+
+	-- Calculate height
+	if not self.height then
+		self.actual_height = self.parent_height
+		self:calculate_text(self.adjusted_width)
+
+		self.height = self.line_height * # self.lines_of_text + self.padding_top
+			+ self.padding_bottom + self.border_width * 2
+
+	end
+
+	-- Calculate adjusted height
+	self.adjusted_height = self.height -
+		self.padding_top -
+		self.padding_bottom -
+		self.border_width * 2
+
+end
+
 function Container:draw_border()
 	-- print_table(self)
 	SetColor(self.border_color)
 	if self.border_width > 0 then
 
 		local top_left = { x=0, y=0 }
-		local top_right = { x=self.width, y=0 }
-		local bottom_left = { x=0, y=self.height }
-		local bottom_right = { x=self.width, y=self.height }
+		local top_right = { x=self.width-1, y=0 }
+		local bottom_left = { x=0, y=self.height-1 }
+		local bottom_right = { x=self.width-1, y=self.height-1 }
 
 		for width = 0, self.border_width - 1 do
 
@@ -240,7 +286,56 @@ function Container:draw_border()
 				top_left.y + width +1)
 
 		end
+	end
+end
 
+function Container:calculate_text(width)
+	if not self.text then do return end end
+	if not compare_tables(self.text_cache, { self.text, width }) then
+		local words = str_split(self.text, ' ')
+		local text_x = 0
+		local lines = {
+			word_count = 0
+		}
+		local line = {}
+		table.insert(lines, line)
+
+		for i,v in ipairs(words) do
+			local text = v
+			if # line > 0 then
+				-- add space if its not the first word
+				text = ' ' .. v
+			end
+
+			-- calculate width
+			local text_width = TextWidth(text)
+
+			-- if it doesnt fit on the line create a new line
+			if text_x + text_width > width then
+				text_x = 0
+				text = v
+				text_width = TextWidth(text)
+				line = {}
+				table.insert(lines, line)
+			end
+
+			-- insert calculated word in line
+			table.insert(line, {
+				text = text,
+				x = text_x,
+				text_width = text_width,
+			})
+
+			line.width = (line.width or 0) + text_width
+
+			-- set the x position for the next word
+			text_x = text_x + text_width
+			self.lines_of_text = lines
+			self.text_cache = {
+				self.text,
+				width
+			}
+		end
 	end
 end
 
@@ -251,50 +346,6 @@ function Container:draw_text()
 	if self.text then
 		SetColor(self.color)
 		-- only calculate if needed
-		if self.last_text ~= self.text then
-
-			local words = str_split(self.text, ' ')
-			local text_x = 0
-			local lines = {
-				word_count = 0
-			}
-			local line = {}
-			table.insert(lines, line)
-
-			for i,v in ipairs(words) do
-				local text = v
-				if # line > 0 then
-					-- add space if its not the first word
-					text = ' ' .. v
-				end
-
-				-- calculate width
-				local text_width = TextWidth(text)
-
-				-- if it doesnt fit on the line create a new line
-				if text_x + text_width > self.adjusted_width then
-					text_x = 0
-					text = v
-					text_width = TextWidth(text)
-					line = {}
-					table.insert(lines, line)
-				end
-
-				-- insert calculated word in line
-				table.insert(line, {
-					text = text,
-					x = text_x,
-					text_width = text_width,
-				})
-
-				line.width = (line.width or 0) + text_width
-
-				-- set the x position for the next word
-				text_x = text_x + text_width
-				self.lines_of_text = lines
-			end
-		end
-
 		-- render text
 		for y,line in ipairs(self.lines_of_text) do
 			local x_offset = 0
@@ -313,9 +364,6 @@ function Container:draw_text()
 				)
 			end
 		end
-
-		self.last_text = self.text
-
 	end
 end
 
@@ -429,30 +477,33 @@ end
 function Container:pre_init()
 	self.zindex = self.parent and self.parent.zindex + 1 or 1
 	self:calculate_bounds()
+	self:calculate_text(self.adjusted_width)
+	self:calculate_position()
 	_.each(self.children, function(x) x:pre_init() end)
 end
 
 function Container:init()
 	self:set_states()
 	self:calculate_bounds()
+	self:calculate_position()
 	_.each(self.children, function(x) x:init() end)
 end
 
 function Container:pre_render()
 	self.zindex = self.parent and self.parent.zindex + 1 or 1
 	self:calculate_bounds()
+	self:calculate_text(self.adjusted_width)
+	self:calculate_position()
 	_.each(self.children, function(x) x:pre_render() end)
 end
 
 local counter = 0
 function Container:render()
 	if not self.buffer then
-		self.buffer = CreateBuffer(self.height, self.width, BUFFER_COLOR)
+		self.buffer = CreateBuffer(self.width, self.height, BUFFER_COLOR)
+		self.render_buffer = CreateBuffer(self.width, self.height, BUFFER_COLOR)
 	end
 	SetBuffer(self.buffer)
-	-- ClearBuffer(BUFFER_COLOR)
-	-- SetColor((self.parent and self.parent.background_color) or Vec4(0,0,0,1))
-	-- DrawRect(0,0,self.height, self.width)
 	self:draw_background()
 	self:draw_border()
 	self:draw_text()

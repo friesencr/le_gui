@@ -36,6 +36,7 @@ Gui.default_styles = {
 	text_align = 'left',
 	text_offset_x = 0,
 	text_offset_y = 0,
+	display = 'block'
 }
 
 Gui.events = {
@@ -118,16 +119,31 @@ function Gui:render()
 	_.each(sorted, function(x) 
 		x:render() 
 	end)
-
-	SetBuffer(BackBuffer())
 	_.each(sorted, function(x)
 		SetColor(Vec4(1,1,1,1))
-		DrawImage(x.color_buffer,
-			x.absolute_x,
-			x.height + x.absolute_y,
-			x.width,
-			-x.height
-		)
+		if (x.parent) then
+			SetBuffer(x.parent.render_buffer)
+			DrawImage(x.color_buffer,
+				x.x,
+				x.height + x.y,
+				x.width,
+				-x.height
+			)
+		else
+			SetBuffer(BackBuffer())
+			DrawImage(x.color_buffer,
+				x.absolute_x,
+				x.height + x.absolute_y,
+				x.width,
+				-x.height
+			)
+			DrawImage(GetColorBuffer(x.render_buffer),
+				x.absolute_x,
+				x.height + x.absolute_y,
+				x.width,
+				-x.height
+			)
+		end
 	end)
 
 	SetBuffer(BackBuffer())
