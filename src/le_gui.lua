@@ -1,14 +1,19 @@
-assert(require("scripts/table"))
-assert(require("scripts/hooks"))
-assert(require("lib/underscore"))
-assert(require("lib/lua_promise/src/promise"))
-assert(require("lib/tween/tween"))
+require "scripts/table"
+require "scripts/hooks"
+require "lib/underscore"
+require "lib/lua_promise/src/promise"
+require "lib/le_gui/src/util"
+require "lib/le_gui/src/background_renderer"
+require "lib/le_gui/src/border_renderer"
+require "lib/le_gui/src/layout_manager"
+require "lib/le_gui/src/render_row"
 
 local _ = Underscore:new()
 
 Gui = {
 	id = 1,
-	elements = {}
+	elements = {},
+	layout_manager = LayoutManager:new()
 }
 
 function Gui.hit_test(x, y, x1, y1, x2, y2)
@@ -97,18 +102,18 @@ end
 function Gui:init()
 	Gui.events:refresh()
 	local roots = _.select(self.elements, function(x) return not x.parent end)
-	_.each(roots, function(x) x:init() end)
+	_.each(roots, function(x) x:init(Gui.layout_manager) end)
 end
 
 function Gui:pre_init()
 	local roots = _.select(self.elements, function(x) return x.parent == nil end)
 	_.each(roots, function(x)
-		x:pre_init()
+		x:pre_init(Gui.layout_manager)
 	end)
 end
 
 function Gui:pre_render()
-	_.each(self.elements, function(x) x:pre_render() end)
+	_.each(self.elements, function(x) x:pre_render(Gui.layout_manager) end)
 end
 
 function Gui:render()
