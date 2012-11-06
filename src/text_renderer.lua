@@ -2,42 +2,48 @@ TextRenderer = {}
 TextRenderer.__index = TextRenderer
 
 function TextRenderer:new()
-
+	local obj = {}
+	setmetatable(obj, TextRenderer)
+	return obj
 end
 
-function TextRenderer:draw_text()
-	if self.font then
-		SetFont(self.font)
+function TextRenderer:draw_text(e)
+	assert(e)
+	self:calculate_text(e, e.adjusted_width)
+	if e.font then
+		SetFont(e.font)
 	end
-	if self.text then
-		assert(self.color)
-		SetColor(self.color)
+	if e.text then
+		assert(e.color)
+		SetColor(e.color)
 		-- only calculate if needed
 		-- render text
-		for y,line in ipairs(self.lines_of_text) do
+		for y,line in ipairs(e.lines_of_text) do
 			local x_offset = 0
 			-- adjust for center align
-			if self.text_align == 'center' then
-				x_offset = (self.adjusted_width - line.width) / 2
+			if e.text_align == 'center' then
+				x_offset = (e.adjusted_width - line.width) / 2
 			-- adjust for right align
-			elseif self.text_align == 'right' then
-				x_offset = (self.adjusted_width - line.width)
+			elseif e.text_align == 'right' then
+				x_offset = (e.adjusted_width - line.width)
 			end
 			-- render every word on line
 			for i, word in ipairs(line) do
 				DrawText(word.text,
-					word.x + self.offset_x + x_offset + self.text_offset_x,
-					((y - 1) * self.line_height) + self.offset_y + self.text_offset_y
+					word.x + e.offset_x + x_offset + e.text_offset_x,
+					((y - 1) * e.line_height) + e.offset_y + e.text_offset_y
 				)
 			end
 		end
 	end
 end
 
-function TextRenderer:calculate_text()
-	if not self.text then do return end end
-	if not compare_tables(self.text_cache, { self.text, width }) then
-		local words = str_split(self.text, ' ')
+function TextRenderer:calculate_text(e, width)
+	assert(e)
+	assert(width)
+	if not e.text then do return end end
+	if not Gui.util.compare_tables(e.text_cache, { e.text, width }) then
+		local words = Gui.util.str_split(e.text, ' ')
 		local text_x = 0
 		local lines = {
 			word_count = 0
@@ -75,9 +81,9 @@ function TextRenderer:calculate_text()
 
 			-- set the x position for the next word
 			text_x = text_x + text_width
-			self.lines_of_text = lines
-			self.text_cache = {
-				self.text,
+			e.lines_of_text = lines
+			e.text_cache = {
+				e.text,
 				width
 			}
 		end

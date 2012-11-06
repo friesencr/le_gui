@@ -26,7 +26,6 @@ function Container:new(values)
 		state = {},
 		current_state = {},
 		callbacks = {},
-		text = nil,
 		class = {},
 		state = {},
 		styles = {},
@@ -34,33 +33,33 @@ function Container:new(values)
 	}
 	setmetatable(obj, Container)
 
-	table_merge(obj, Gui.default_styles)
-	table_merge(obj, values)
+	Gui.util.table_merge(obj, Gui.default_styles)
+	Gui.util.table_merge(obj, values)
 	Emitter:new(obj)
 	obj._identity = Gui.id
 	Gui.id = Gui.id + 1
 	local _styles = obj.styles
 	obj.styles = { _values = {} }
 	setmetatable(obj.styles, styles_mt)
-	table_merge(obj.styles, _styles)
+	Gui.util.table_merge(obj.styles, _styles)
 	obj:apply_styles_and_classes()
 	table.insert(Gui.elements, obj)
 	return obj
 end
 
 function Container:apply_styles_and_classes()
-	table_merge(self, Gui.default_styles)
+	Gui.util.table_merge(self, Gui.default_styles)
 	for i,class in ipairs(self.class) do
-		table_merge(self, class)
+		Gui.util.table_merge(self, class)
 	end
-	table_merge(self, rawget(self.styles, '_values'))
+	Gui.util.table_merge(self, rawget(self.styles, '_values'))
 end
 
 function Container:apply_state(state)
 	if self.state[state] then
-		table_merge(self, self.state[state])
+		Gui.util.table_merge(self, self.state[state])
 	end
-	table_merge(self, rawget(self.styles, '_values'))
+	Gui.util.table_merge(self, rawget(self.styles, '_values'))
 end
 
 function Container:set_states()
@@ -152,20 +151,20 @@ end
 
 function Container:pre_init(layout_manager)
 	self.zindex = self.parent and self.parent.zindex + 1 or 1
-	layout_manager:position(self)
-	_.each(self.children, function(x) x:pre_init() end)
+	layout_manager:layout(self)
+	_.each(self.children, function(x) x:pre_init(layout_manager) end)
 end
 
-function Container:init()
+function Container:init(layout_manager)
 	self:set_states()
-	layout_manager:position(self)
-	_.each(self.children, function(x) x:init() end)
+	layout_manager:layout(self)
+	_.each(self.children, function(x) x:init(layout_manager) end)
 end
 
-function Container:pre_render()
+function Container:pre_render(layout_manager)
 	self.zindex = self.parent and self.parent.zindex + 1 or 1
-	layout_manager:position(self)
-	_.each(self.children, function(x) x:pre_render() end)
+	layout_manager:layout(self)
+	_.each(self.children, function(x) x:pre_render(layout_manager) end)
 end
 
 local function get_render_cache(obj)
@@ -186,13 +185,13 @@ local function get_render_cache(obj)
 	}
 end
 
-function Container:render(background_render, border_renderer, text_renderer)
+function Container:render(border_renderer, background_render, text_renderer)
 	local render_cache = get_render_cache(self)
-	if not compare_tables(self.render_cache, render_cache) then
+	if not Gui.util.compare_tables(self.render_cache, render_cache) then
 		self.buffer = CreateBuffer(self.width, self.height, BUFFER_COLOR)
 		self.render_buffer = CreateBuffer(self.width, self.height, BUFFER_COLOR)
 		SetBuffer(self.buffer)
-		background_render:draw_background(self)
+		background_render:draw_background_color(self)
 		border_renderer:draw_border(self)
 		text_renderer:draw_text(self)
 		self.color_buffer = GetColorBuffer(self.buffer)

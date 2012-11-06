@@ -2,21 +2,22 @@ BorderRenderer = {}
 BorderRenderer.__index = BorderRenderer
 
 function BorderRenderer:new()
-
+	local obj = {}
+	setmetatable(obj, BorderRenderer)
+	return obj
 end
 
-function BorderRenderer:draw_border()
-	-- print_table(self)
-	assert(self.border_color)
-	SetColor(self.border_color)
-	if self.border_width > 0 then
+function BorderRenderer:draw_border(e)
+	if e.border_width > 0 then
+		assert(e.border_color)
+		SetColor(e.border_color)
 
 		local top_left = { x=0, y=0 }
-		local top_right = { x=self.width-1, y=0 }
-		local bottom_left = { x=0, y=self.height-1 }
-		local bottom_right = { x=self.width-1, y=self.height-1 }
+		local top_right = { x=e.width-1, y=0 }
+		local bottom_left = { x=0, y=e.height-1 }
+		local bottom_right = { x=e.width-1, y=e.height-1 }
 
-		for width = 0, self.border_width - 1 do
+		for width = 0, e.border_width - 1 do
 
 			-- top border
 			DrawLine(

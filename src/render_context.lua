@@ -14,7 +14,9 @@ function RenderContext:new(parent)
 end
 
 function RenderContext:add_row()
-	self.items[# self.items] = RenderRow:new(self)
+	local row = RenderRow:new(self)
+	self.items[# self.items] = row
+	return row
 end
 
 function RenderContext:current_row()

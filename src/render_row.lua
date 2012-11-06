@@ -12,7 +12,7 @@ function RenderRow:new(context, parent)
 		items = {},
 	}
 	setmetatable(obj, RenderRow)
-	return row
+	return obj
 end
 
 function RenderRow:used_width()
@@ -48,15 +48,18 @@ function RenderRow:add_block_item(element)
 end
 
 function RenderRow:position_inline(accumulative_height)
+	local total_width = self.context.width
+	local left, right, center = {}, {}, {}
+	local left_width, right_width, center_width = 0, 0, 0
 
-	for i,v in ipairs(items) do
+	for i,v in ipairs(self.items) do
 		if v.horizontal_align == 'left' then
 			left[#left] = v
 			left_width = left_width + v.width
-		if v.horizontal_align == 'center' then
+		elseif v.horizontal_align == 'center' then
 			center[#center] = v
 			center_width = center_width + v.width
-		if v.horizontal_align == 'right' then
+		elseif v.horizontal_align == 'right' then
 			table.insert(right, v)
 			right_width = right_width + v.width
 		end

@@ -1,8 +1,11 @@
 LayoutManager = {}
-LayoutManager.__index = {}
+LayoutManager.__index = LayoutManager
 
-function LayoutManager:new()
-	local obj = {}
+function LayoutManager:new(text_renderer)
+	assert(text_renderer)
+	local obj = {
+		text_renderer = text_renderer
+	}
 	obj.contexts = {}
 	setmetatable(obj, LayoutManager)
 	return obj
@@ -18,19 +21,23 @@ function LayoutManager:get_context(parent)
 	return context
 end
 
-function LayoutManager:position(context, element)
-	if element.display == 'inline' then
-		local fits = context:current_row():add_inline_item(child)
+function LayoutManager:position(context, e)
+	assert(context)
+	assert(e)
+	if e.display == 'inline' then
+		local fits = context:current_row():add_inline_item(e)
 		if not fits then
-			context:add_row():add_inline_item(element)
+			context:add_row():add_inline_item(e)
 		end
-	elseif element.display == 'block' then
-		context:add_row():add_block_item(element)
+	elseif e.display == 'block' then
+		context
+			:add_row()
+			:add_block_item(e)
 	end
 end
 
 function LayoutManager:absolute_position(e)
-	local absolute_x = e.x + alignment_offset_x
+	local absolute_x = e.x
 	if e.parent then
 		absolute_x = absolute_x + e.parent.absolute_x + e.parent.offset_x
 	end
@@ -91,7 +98,7 @@ function LayoutManager:height(context, e)
 	if not e.height then
 		e.height = context.height
 		if e.text then
-			e:calculate_text(e.adjusted_width)
+			self.text_renderer:calculate_text(e, e.adjusted_width)
 			e.height = e.line_height * # e.lines_of_text + e.padding_top
 				+ e.padding_bottom + e.border_width * 2
 		end
@@ -131,6 +138,6 @@ function LayoutManager:layout(e)
 	self:height(context, e)
 	self:adjusted_height(e)
 	self:offsets(e)
-	self:position(e)
+	self:position(context, e)
 	self:absolute_position(e)
 end

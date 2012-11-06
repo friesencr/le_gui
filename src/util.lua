@@ -55,4 +55,4 @@ function util.str_split(str, sSeparator, nMax, bRegexp)
 	return aRecord
 end
 
-return util
+Gui.util = util

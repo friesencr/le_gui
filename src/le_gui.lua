@@ -1,3 +1,5 @@
+Gui = {}
+
 require "scripts/table"
 require "scripts/hooks"
 require "lib/underscore"
@@ -5,16 +7,20 @@ require "lib/lua_promise/src/promise"
 require "lib/le_gui/src/util"
 require "lib/le_gui/src/background_renderer"
 require "lib/le_gui/src/border_renderer"
+require "lib/le_gui/src/text_renderer"
+require "lib/le_gui/src/border_renderer"
 require "lib/le_gui/src/layout_manager"
+require "lib/le_gui/src/render_context"
 require "lib/le_gui/src/render_row"
 
 local _ = Underscore:new()
 
-Gui = {
-	id = 1,
-	elements = {},
-	layout_manager = LayoutManager:new()
-}
+Gui.id = 1
+Gui.elements = {}
+Gui.background_renderer = BackgroundRenderer:new()
+Gui.border_renderer = BorderRenderer:new()
+Gui.text_renderer = TextRenderer:new()
+Gui.layout_manager = LayoutManager:new(Gui.text_renderer)
 
 function Gui.hit_test(x, y, x1, y1, x2, y2)
 	local hit = x >= x1 and x <= x2 and y >= y1 and y <= y2
@@ -67,14 +73,14 @@ local function set_mouse_state(context, button, mouse_down)
 end
 
 function Gui:capture_events()
-	local test = function(x) 
+	local test = function(x)
 		return Gui.hit_test(
 			MouseX(),
 			MouseY(),
-			x.coords.top_left.x,
-			x.coords.top_left.y,
-			x.coords.bottom_right.x,
-			x.coords.bottom_right.y
+			x.absolute_coords.top_left.x,
+			x.absolute_coords.top_left.y,
+			x.absolute_coords.bottom_right.x,
+			x.absolute_coords.bottom_right.y
 		)
 	end
 
@@ -121,8 +127,12 @@ function Gui:render()
 	local sorted = _.sort(self.elements, function(x, y)
 		return x.zindex < y.zindex
 	end)
-	_.each(sorted, function(x) 
-		x:render() 
+	_.each(sorted, function(x)
+		x:render(
+			Gui.border_renderer,
+			Gui.background_renderer,
+			Gui.text_renderer
+		)
 	end)
 	_.each(sorted, function(x)
 		SetColor(Vec4(1,1,1,1))
