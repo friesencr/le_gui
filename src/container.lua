@@ -189,7 +189,7 @@ function Container:render(border_renderer, background_render, text_renderer)
 	local render_cache = get_render_cache(self)
 	if not Gui.util.compare_tables(self.render_cache, render_cache) then
 		self.buffer = CreateBuffer(self.width, self.height, BUFFER_COLOR)
-		self.render_buffer = CreateBuffer(self.width, self.height, BUFFER_COLOR)
+		self.render_buffer = CreateBuffer(self.adjusted_width, self.adjusted_height, BUFFER_COLOR)
 		SetBuffer(self.buffer)
 		background_render:draw_background_color(self)
 		border_renderer:draw_border(self)

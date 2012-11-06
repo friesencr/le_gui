@@ -10,8 +10,6 @@ require "lib/le_gui/src/border_renderer"
 require "lib/le_gui/src/text_renderer"
 require "lib/le_gui/src/border_renderer"
 require "lib/le_gui/src/layout_manager"
-require "lib/le_gui/src/render_context"
-require "lib/le_gui/src/render_row"
 
 local _ = Underscore:new()
 
@@ -153,10 +151,10 @@ function Gui:render()
 				-x.height
 			)
 			DrawImage(GetColorBuffer(x.render_buffer),
-				x.absolute_x,
-				x.height + x.absolute_y,
-				x.width,
-				-x.height
+				x.absolute_x + x.offset_x,
+				x.adjusted_height + x.absolute_y + x.offset_y,
+				x.adjusted_width,
+				-x.adjusted_height
 			)
 		end
 	end)

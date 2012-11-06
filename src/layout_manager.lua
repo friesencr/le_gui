@@ -11,29 +11,40 @@ function LayoutManager:new(text_renderer)
 	return obj
 end
 
-function LayoutManager:get_context(parent)
-	local id = (parent and parent._identity) or 0
-	local context = self.contexts[id] 
-	if not context then
-		context = RenderContext:new(parent)
-		self.contexts[id] = context
-	end
-	return context
-end
-
 function LayoutManager:position(context, e)
 	assert(context)
 	assert(e)
-	if e.display == 'inline' then
-		local fits = context:current_row():add_inline_item(e)
-		if not fits then
-			context:add_row():add_inline_item(e)
-		end
-	elseif e.display == 'block' then
-		context
-			:add_row()
-			:add_block_item(e)
+
+	if e.left then
+		e.x = e.left
 	end
+
+	if e.top then
+		e.y = e.top
+	end
+
+	if e.right then
+		if not e.left then
+			e.x = context.width - e.width - e.right
+		end
+	end
+
+	if e.bottom then
+		if not e.top then
+			e.y = context.height - e.height - e.bottom
+		end
+	end
+
+	if e.horizontal_align == 'left' then
+		e.x = 0
+	elseif e.horizontal_align == 'center' then
+		e.x = (context.width - e.width) / 2
+	elseif e.horizontal_align == 'right' then
+		e.x = context.width - e.width
+	end
+
+	e.y = e.y or 0
+	e.x = e.x or 0
 end
 
 function LayoutManager:absolute_position(e)
@@ -80,22 +91,18 @@ function LayoutManager:absolute_position(e)
 end
 
 function LayoutManager:width(context, e)
-	if not e.width then
+	if e.left and e.right then
+		e.width = context.width - e.right - e.left
+	elseif not e.width then
 		e.width = context.width
-		if e.dispaly == "inline" and e.text then
-			local text_width = TextWidth(e.text) + e.padding_left + 
-				e.padding_right + e.border_width * 2
-
-			if text_width < parent_width then
-				e.width = text_width
-			end
-		end
 	end
 end
 
 function LayoutManager:height(context, e)
 	-- Calculate height
-	if not e.height then
+	if e.top and e.bottom then
+		e.height = context.height - e.top - e.bottom
+	elseif not e.height then
 		e.height = context.height
 		if e.text then
 			self.text_renderer:calculate_text(e, e.adjusted_width)
@@ -132,7 +139,10 @@ function LayoutManager:adjusted_position(e)
 end
 
 function LayoutManager:layout(e)
-	local context = self:get_context(e.parent)
+	local context = {
+		height = e.parent and e.parent.adjusted_height or GraphicsHeight(),
+		width = e.parent and e.parent.adjusted_width or GraphicsWidth()
+	}
 	self:width(context, e)
 	self:adjusted_width(e)
 	self:height(context, e)
