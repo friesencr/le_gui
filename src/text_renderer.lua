@@ -8,7 +8,6 @@ function TextRenderer:new()
 end
 
 function TextRenderer:draw_text(e)
-	assert(e)
 	self:calculate_text(e, e.adjusted_width)
 	if e.font then
 		SetFont(e.font)
@@ -30,8 +29,8 @@ function TextRenderer:draw_text(e)
 			-- render every word on line
 			for i, word in ipairs(line) do
 				DrawText(word.text,
-					word.x + e.offset_x + x_offset + e.text_offset_x,
-					((y - 1) * e.line_height) + e.offset_y + e.text_offset_y
+					word.x + x_offset + e.text_offset_x,
+					((y - 1) * e.line_height) + e.text_offset_y
 				)
 			end
 		end

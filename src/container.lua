@@ -175,10 +175,19 @@ local function get_render_cache(obj)
 		obj.padding_left,
 		obj.padding_top,
 		obj.padding_bottom,
+		obj.adjusted_height,
+		obj.adjusted_width,
 		obj.background_color,
 		obj.background_image,
 		obj.border_color,
 		obj.border_width,
+	}
+end
+
+local function get_text_cache(obj)
+	return {
+		obj.adjusted_height,
+		obj.adjusted_width,
 		obj.text,
 		obj.font,
 		obj.color
@@ -186,16 +195,49 @@ local function get_render_cache(obj)
 end
 
 function Container:render(border_renderer, background_render, text_renderer)
+	-- local overflow_buffer_cache = { self.adjusted_width, self.adjusted_height }
+	-- if not Gui.util.compare_tables(self.overflow_buffer_cache, overflow_buffer_cache) then
+	-- 	if self.overflow_buffer then self.overflow_buffer:Free() end
+	-- 	self.overflow_buffer = CreateBuffer(self.adjusted_width, self.adjusted_height, BUFFER_COLOR)
+	-- end
+
+	-- SetColor(Vec4(0,0,0,0))
+	-- self.overflow_buffer:Clear(BUFFER_COLOR)
+
+	local buffer_cache = { self.width, self.height }
+	if not Gui.util.compare_tables(self.buffer_cache, buffer_cache) then
+		self.buffer = CreateBuffer(math.max(2,self.width), math.max(2,self.height), BUFFER_COLOR)
+		self.buffer_cache = buffer_cache
+	end
+
 	local render_cache = get_render_cache(self)
 	if not Gui.util.compare_tables(self.render_cache, render_cache) then
-		self.buffer = CreateBuffer(self.width, self.height, BUFFER_COLOR)
-		self.render_buffer = CreateBuffer(self.adjusted_width, self.adjusted_height, BUFFER_COLOR)
 		SetBuffer(self.buffer)
+		SetColor(Vec4(0,0,0,0))
+		self.buffer:Clear(BUFFER_COLOR)
 		background_render:draw_background_color(self)
+		background_render:draw_background_image(self)
 		border_renderer:draw_border(self)
-		text_renderer:draw_text(self)
-		self.color_buffer = GetColorBuffer(self.buffer)
+		self.color_render = GetColorBuffer(self.buffer)
 		self.render_cache = render_cache
+	end
+
+	local text_buffer_cache = { self.adjusted_width, self.adjusted_height }
+	if not Gui.util.compare_tables( self.text_buffer_cache, text_buffer_cache ) then
+		AppLog(math.max(2, self.adjusted_height))
+		self.text_buffer = CreateBuffer(math.max(1, self.adjusted_width), math.max(2,self.adjusted_height), BUFFER_COLOR)
+		self.text_buffer_cache = text_buffer_cache
+	end
+
+	local text_cache = get_text_cache(self)
+	if not Gui.util.compare_tables(self.text_cache, text_cache) then
+		SetBuffer(self.text_buffer)
+		SetColor(Vec4(0,0,0,0))
+		ClearBuffer(self.text_buffer)
+		self.text_buffer:Clear(BUFFER_COLOR)
+		text_renderer:draw_text(self)
+		self.text_render = GetColorBuffer(self.text_buffer)
+		self.text_cache = text_cache
 	end
 end
 
@@ -217,6 +259,11 @@ local function _search_children(obj, predicate, ret)
 				_search_children(x, predicate, ret)
 			end)
 	end
+end
+
+function Container:get_overflow_buffer()
+	local parent = self:find_parent(function(x) return x.overflow end)
+	return parent and parent.overflow_buffer or BackBuffer()
 end
 
 function Container:find_parent(predicate)

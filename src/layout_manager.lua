@@ -133,6 +133,24 @@ function LayoutManager:offsets(e)
 	e.offset_y = e.border_width + e.padding_top
 end
 
+local function add_parent_val(e, prop, x)
+	if e.parent then
+		x.count = x.count + e.parent[prop]
+		add_parent_val(e.parent, prop, x)
+	else
+		return x
+	end
+end
+
+function LayoutManager:overflow_position(e)
+	local x_count = { count = e.x }
+	local y_count = { count = e.y }
+	add_parent_val(e, 'offset_x', x_count)
+	add_parent_val(e, 'offset_y', y_count)
+	e.overflow_x = x_count.count
+	e.overflow_y = y_count.count
+end
+
 function LayoutManager:adjusted_position(e)
 	e.adjusted_x = e.x + e.offset_x
 	e.adjusted_y = e.y + e.offset_y
@@ -149,5 +167,6 @@ function LayoutManager:layout(e)
 	self:adjusted_height(e)
 	self:offsets(e)
 	self:position(context, e)
+	self:overflow_position(e)
 	self:absolute_position(e)
 end

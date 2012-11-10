@@ -36,16 +36,17 @@ Gui.default_styles = {
 	padding_right = 0,
 	border_width = 0,
 	border_color = Vec4(0,0,0,1),
-	background_color = nil,
-	background_image = nil, --texture
-	color = nil,
+	background_color = false,
+	background_image = false, --texture
+	opacity = 1,
+	color = Vec4(1,1,1,1),
 	line_height = 14,
 	font = nil,
-	horizontal_align = 'left',
+	horizontal_align = false,
 	text_align = 'left',
 	text_offset_x = 0,
 	text_offset_y = 0,
-	display = 'block'
+	overflow = false
 }
 
 Gui.events = {
@@ -123,7 +124,11 @@ end
 function Gui:render()
 	SetBlend(1)
 	local sorted = _.sort(self.elements, function(x, y)
-		return x.zindex < y.zindex
+		if x.zindex == y.zindex then
+			return x._identity < y._identity
+		else
+			return x.zindex < y.zindex
+		end
 	end)
 	_.each(sorted, function(x)
 		x:render(
@@ -132,33 +137,35 @@ function Gui:render()
 			Gui.text_renderer
 		)
 	end)
+
 	_.each(sorted, function(x)
 		SetColor(Vec4(1,1,1,1))
-		if (x.parent) then
-			SetBuffer(x.parent.render_buffer)
-			DrawImage(x.color_buffer,
-				x.x,
-				x.height + x.y,
-				x.width,
-				-x.height
-			)
-		else
-			SetBuffer(BackBuffer())
-			DrawImage(x.color_buffer,
-				x.absolute_x,
-				x.height + x.absolute_y,
-				x.width,
-				-x.height
-			)
-			DrawImage(GetColorBuffer(x.render_buffer),
-				x.absolute_x + x.offset_x,
-				x.adjusted_height + x.absolute_y + x.offset_y,
+		SetBuffer(x:get_overflow_buffer())
+		DrawImage(x.color_render,
+			x.overflow_x,
+			x.height + x.overflow_y,
+			x.width,
+			-x.height
+		)
+		if x.text then
+			DrawImage(x.text_render,
+				x.overflow_x + x.offset_x,
+				x.adjusted_height + x.overflow_y + x.offset_y,
 				x.adjusted_width,
 				-x.adjusted_height
 			)
 		end
+		-- if x.overflow then
+		-- 	DrawImage(GetColorBuffer(x.overflow_buffer),
+		-- 		x.overflow_x + x.offset_x,
+		-- 		x.adjusted_height + x.overflow_y + x.offset_y,
+		-- 		x.adjusted_width,
+		-- 		-x.adjusted_height
+		-- 	)
+		-- end
 	end)
 
+	SetColor(Vec4(1,1,1,1))
 	SetBuffer(BackBuffer())
 	mouse:draw()
 	SetBlend(0)
