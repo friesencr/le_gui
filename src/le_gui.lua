@@ -127,7 +127,7 @@ function Gui:render()
 		if x.zindex == y.zindex then
 			return x._identity < y._identity
 		else
-			return x.zindex > y.zindex
+			return x.zindex < y.zindex
 		end
 	end)
 	_.each(sorted, function(x)
@@ -155,6 +155,12 @@ function Gui:render()
 				-x.adjusted_height
 			)
 		end
+	end)
+
+	_.each(sorted, function(x)
+		SetColor(Vec4(1,1,1,x.opacity))
+		SetBuffer(x:get_clip_buffer())
+
 		if x.clip then
 			DrawImage(GetColorBuffer(x.clip_buffer),
 				x.clip_x + x.offset_x,

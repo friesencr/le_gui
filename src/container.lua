@@ -141,6 +141,7 @@ function Container:capture_events(hit)
 end
 
 function Container:add_child(child)
+	assert(child)
 	child.parent = self
 	table.insert(self.children, child)
 end
@@ -245,20 +246,21 @@ function Container:render(border_renderer, background_render, text_renderer)
 	end
 end
 
-local function _search_parents(obj, predicate)
+local function _search_parents(obj, result, predicate)
 	if obj then
 		if predicate(obj) then
-			return obj
+			result.value = obj
+			return
 		else
-			_search_parents(obj.parent, predicate)
+			_search_parents(obj.parent, result, predicate)
 		end
 	end
 end
 
-local function _search_children(obj, predicate, ret)
+local function _search_children(obj, result, predicate)
 	if obj and obj.children and # obj.children > 0 then
 		local matches = _.select(obj.children, predicate)
-		table.concat(ret, matches)
+		table.concat(result, matches)
 		_.each(obj.children, function(x)
 				_search_children(x, predicate, ret)
 			end)
@@ -279,19 +281,27 @@ function Container:get_clip_buffer()
 end
 
 function Container:find_self_or_child(predicate)
-	return _search_parents(self, predicate)
+	local result = { values = {}}
+	_search_parents(self, result, predicate)
+	return result.values
 end
 
 function Container:find_self_or_parent(predicate)
-	return _search_parents(self, predicate)
+	local result = {}
+	_search_parents(self, result, predicate)
+	return result.value
 end
 
 function Container:find_parent(predicate)
-	return _search_parents(self.parent, predicate)
+	local result = {}
+	_search_parents(self.parent, result, predicate)
+	return result.value
 end
 
 function Container:find_child(predicate)
-	return _search_children(self.parent, predicate, {})
+	local result = { values = {} }
+	_search_children(self.parent, result, predicate)
+	return result.value
 end
 
 Gui.Container = Container

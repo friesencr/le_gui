@@ -136,6 +136,7 @@ end
 local function add_parent_val(e, prop, x)
 	if e.parent then
 		x.count = x.count + e.parent[prop]
+		x.count = x.count + e.parent['offset_' .. prop]
 		add_parent_val(e.parent, prop, x)
 	else
 		return x
@@ -145,8 +146,8 @@ end
 function LayoutManager:clip_position(e)
 	local x_count = { count = e.x }
 	local y_count = { count = e.y }
-	add_parent_val(e, 'offset_x', x_count)
-	add_parent_val(e, 'offset_y', y_count)
+	add_parent_val(e, 'x', x_count)
+	add_parent_val(e, 'y', y_count)
 	e.clip_x = x_count.count
 	e.clip_y = y_count.count
 end

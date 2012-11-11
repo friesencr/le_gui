@@ -21,11 +21,8 @@ end
 
 function BackgroundRenderer:draw_background_image(e)
 	if e.background_image then
-		if type(e.background_image) == 'string' then
-			e.background_image = LoadTexture(e.background_image)
-		end
 		SetColor(Vec4(1,1,1,1))
-		DrawImage(e.background_image,
+		DrawImage(LoadTexture(e.background_image),
 			0,
 			0,
 			e.width,
