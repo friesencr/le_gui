@@ -46,7 +46,7 @@ Gui.default_styles = {
 	text_align = 'left',
 	text_offset_x = 0,
 	text_offset_y = 0,
-	overflow = false
+	clip = false
 }
 
 Gui.events = {
@@ -127,7 +127,7 @@ function Gui:render()
 		if x.zindex == y.zindex then
 			return x._identity < y._identity
 		else
-			return x.zindex < y.zindex
+			return x.zindex > y.zindex
 		end
 	end)
 	_.each(sorted, function(x)
@@ -139,30 +139,30 @@ function Gui:render()
 	end)
 
 	_.each(sorted, function(x)
-		SetColor(Vec4(1,1,1,1))
-		SetBuffer(x:get_overflow_buffer())
+		SetColor(Vec4(1,1,1,x.opacity))
+		SetBuffer(x:get_clip_buffer())
 		DrawImage(x.color_render,
-			x.overflow_x,
-			x.height + x.overflow_y,
+			x.clip_x,
+			x.height + x.clip_y,
 			x.width,
 			-x.height
 		)
 		if x.text then
 			DrawImage(x.text_render,
-				x.overflow_x + x.offset_x,
-				x.adjusted_height + x.overflow_y + x.offset_y,
+				x.clip_x + x.offset_x,
+				x.adjusted_height + x.clip_y + x.offset_y,
 				x.adjusted_width,
 				-x.adjusted_height
 			)
 		end
-		-- if x.overflow then
-		-- 	DrawImage(GetColorBuffer(x.overflow_buffer),
-		-- 		x.overflow_x + x.offset_x,
-		-- 		x.adjusted_height + x.overflow_y + x.offset_y,
-		-- 		x.adjusted_width,
-		-- 		-x.adjusted_height
-		-- 	)
-		-- end
+		if x.clip then
+			DrawImage(GetColorBuffer(x.clip_buffer),
+				x.clip_x + x.offset_x,
+				x.adjusted_height + x.clip_y + x.offset_y,
+				x.adjusted_width,
+				-x.adjusted_height
+			)
+		end
 	end)
 
 	SetColor(Vec4(1,1,1,1))

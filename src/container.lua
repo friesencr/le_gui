@@ -195,14 +195,19 @@ local function get_text_cache(obj)
 end
 
 function Container:render(border_renderer, background_render, text_renderer)
-	-- local overflow_buffer_cache = { self.adjusted_width, self.adjusted_height }
-	-- if not Gui.util.compare_tables(self.overflow_buffer_cache, overflow_buffer_cache) then
-	-- 	if self.overflow_buffer then self.overflow_buffer:Free() end
-	-- 	self.overflow_buffer = CreateBuffer(self.adjusted_width, self.adjusted_height, BUFFER_COLOR)
-	-- end
+	if self.clip then
+		local clip_buffer_cache = { self.adjusted_width, self.adjusted_height }
+		if not Gui.util.compare_tables(self.clip_buffer_cache, clip_buffer_cache) then
+			self.clip_buffer = CreateBuffer(math.max(2, self.adjusted_width), math.max(2, self.adjusted_height), BUFFER_COLOR)
+			self.clip_buffer_cache = clip_buffer_cache
+		end
 
-	-- SetColor(Vec4(0,0,0,0))
-	-- self.overflow_buffer:Clear(BUFFER_COLOR)
+		if self.clip_buffer then
+			SetBuffer(self.clip_buffer)
+			SetColor(Vec4(0,0,0,0))
+			self.clip_buffer:Clear(BUFFER_COLOR)
+		end
+	end
 
 	local buffer_cache = { self.width, self.height }
 	if not Gui.util.compare_tables(self.buffer_cache, buffer_cache) then
@@ -224,8 +229,7 @@ function Container:render(border_renderer, background_render, text_renderer)
 
 	local text_buffer_cache = { self.adjusted_width, self.adjusted_height }
 	if not Gui.util.compare_tables( self.text_buffer_cache, text_buffer_cache ) then
-		AppLog(math.max(2, self.adjusted_height))
-		self.text_buffer = CreateBuffer(math.max(1, self.adjusted_width), math.max(2,self.adjusted_height), BUFFER_COLOR)
+		self.text_buffer = CreateBuffer(math.max(2, self.adjusted_width), math.max(2,self.adjusted_height), BUFFER_COLOR)
 		self.text_buffer_cache = text_buffer_cache
 	end
 
@@ -261,17 +265,33 @@ local function _search_children(obj, predicate, ret)
 	end
 end
 
-function Container:get_overflow_buffer()
-	local parent = self:find_parent(function(x) return x.overflow end)
-	return parent and parent.overflow_buffer or BackBuffer()
+function Container:get_clip_parent()
+	return self:find_parent(function(x) return x.clip end)
 end
 
-function Container:find_parent(predicate)
+function Container:get_clip_buffer()
+	local parent = self:get_clip_parent()
+	if parent then
+		return parent.clip_buffer
+	else
+		return BackBuffer()
+	end
+end
+
+function Container:find_self_or_child(predicate)
 	return _search_parents(self, predicate)
 end
 
+function Container:find_self_or_parent(predicate)
+	return _search_parents(self, predicate)
+end
+
+function Container:find_parent(predicate)
+	return _search_parents(self.parent, predicate)
+end
+
 function Container:find_child(predicate)
-	return _search_children(self, predicate, {})
+	return _search_children(self.parent, predicate, {})
 end
 
 Gui.Container = Container

@@ -142,13 +142,13 @@ local function add_parent_val(e, prop, x)
 	end
 end
 
-function LayoutManager:overflow_position(e)
+function LayoutManager:clip_position(e)
 	local x_count = { count = e.x }
 	local y_count = { count = e.y }
 	add_parent_val(e, 'offset_x', x_count)
 	add_parent_val(e, 'offset_y', y_count)
-	e.overflow_x = x_count.count
-	e.overflow_y = y_count.count
+	e.clip_x = x_count.count
+	e.clip_y = y_count.count
 end
 
 function LayoutManager:adjusted_position(e)
@@ -167,6 +167,6 @@ function LayoutManager:layout(e)
 	self:adjusted_height(e)
 	self:offsets(e)
 	self:position(context, e)
-	self:overflow_position(e)
+	self:clip_position(e)
 	self:absolute_position(e)
 end
