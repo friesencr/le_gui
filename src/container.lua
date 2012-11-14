@@ -62,7 +62,8 @@ function Container:apply_state(state)
 	Gui.util.table_merge(self, rawget(self.styles, '_values'))
 end
 
-function Container:set_states()
+local function apply_mouse_states(self)
+
 	local hit = Gui.hit_test(
 		MouseX(),
 		MouseY(),
@@ -72,33 +73,56 @@ function Container:set_states()
 		self.absolute_coords.bottom_right.y
 	)
 
-	local state_changes = 0
-	if self.current_state.hover ~= hit then
-		state_changes = state_changes + 1
-		self.current_state.hover = hit
-		if hit then
-			self:apply_state('hover')
-		else
-			self.current_state.hover = false
-		end
+	if hit then
+		self:add_state('hover', 3)
+	else
+		self:remove_state('hover')
 	end
 
 	local active = hit and MouseDown(MOUSE_LEFT) == 1
-	if self.current_state.active ~= active then
-		state_changes = state_changes + 1
-		self.current_state.active = active
-		if active then
-			self:apply_state('active')
-		else
-			self.current_state.active = false
-			if hit then
-				self:apply_styles_and_classes()
-				self:apply_state('hover')
+	if active then
+		self:add_state('active', 2)
+	else
+		self:remove_state('active')
+	end
+
+end
+
+function Container:add_state(state, priority)
+	priority = priority or 1
+	if not self.current_state[state] then
+		table.insert(self.apply_states, state)
+		self.current_state[state] = priority
+	end
+end
+
+function Container:remove_state(state)
+	if self.current_state[state] then
+		table.insert(self.remove_states, state)
+		self.current_state[state] = nil
+	end
+end
+
+function Container:set_states()
+
+	apply_mouse_states(self)
+
+	if # self.remove_states > 0 or # self.apply_states > 0 then
+		self:apply_styles_and_classes()
+
+		local states = _.keys(self.current_state)
+		local _self = self
+		-- states = _.select(states, function(x) return _self.current_state[x] end)
+		states = _.sort(states, function(a,b) return _self.current_state[a] > _self.current_state[b] end)
+
+		if # self.apply_states > 0 then
+			for i,v in ipairs(states) do
+				self:apply_state(v)
 			end
 		end
 	end
 
-	if self.styles._changed or not self.current_state.hover and state_changes > 0 then
+	if self.styles._changed then
 		rawset(self.styles,'_changed', false)
 		self:apply_styles_and_classes()
 	end
@@ -108,13 +132,11 @@ function Container:capture_events(hit)
 	if self.mouse_in then
 		if hit == false and Gui.last_mouse_element == self then
 			self.mouse_in = false
-			self.current_state['hover'] = false
 			self:trigger('mouseout')
 			Gui.last_mouse_element = nil
 		end
 	elseif hit then
 		self.mouse_in = true
-		self.current_state['hover'] = true
 		self:trigger('mousein')
 		Gui.last_mouse_element = self
 	end
@@ -151,6 +173,8 @@ function Container:add_children(children)
 end
 
 function Container:pre_init(layout_manager)
+	self.apply_states = {}
+	self.remove_states = {}
 	self.zindex = self.parent and self.parent.zindex + 1 or 1
 	layout_manager:layout(self)
 	_.each(self.children, function(x) x:pre_init(layout_manager) end)
