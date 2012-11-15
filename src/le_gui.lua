@@ -110,13 +110,6 @@ function Gui:init()
 	_.each(roots, function(x) x:init(Gui.layout_manager) end)
 end
 
-function Gui:pre_init()
-	local roots = _.select(self.elements, function(x) return x.parent == nil end)
-	_.each(roots, function(x)
-		x:pre_init(Gui.layout_manager)
-	end)
-end
-
 function Gui:pre_render()
 	_.each(self.elements, function(x) x:pre_render(Gui.layout_manager) end)
 end
@@ -179,7 +172,6 @@ end
 
 local function on_flip()
 	if # Gui.elements > 0 then
-		Gui:pre_init()
 		Gui:init()
 		Gui:capture_events()
 		Gui:pre_render()

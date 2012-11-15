@@ -74,6 +74,21 @@ local function apply_mouse_states(self)
 	)
 
 	if hit then
+		local clipping_parent = self:get_clip_parent()
+		if clipping_parent then
+			local parent_hit = Gui.hit_test(
+				MouseX(),
+				MouseY(),
+				clipping_parent.absolute_coords.top_left.x,
+				clipping_parent.absolute_coords.top_left.y,
+				clipping_parent.absolute_coords.bottom_right.x,
+				clipping_parent.absolute_coords.bottom_right.y
+			)
+			hit = parent_hit
+		end
+	end
+
+	if hit then
 		self:add_state('hover', 3)
 	else
 		self:remove_state('hover')
@@ -112,13 +127,10 @@ function Container:set_states()
 
 		local states = _.keys(self.current_state)
 		local _self = self
-		-- states = _.select(states, function(x) return _self.current_state[x] end)
 		states = _.sort(states, function(a,b) return _self.current_state[a] > _self.current_state[b] end)
 
-		if # self.apply_states > 0 then
-			for i,v in ipairs(states) do
-				self:apply_state(v)
-			end
+		for i,v in ipairs(states) do
+			self:apply_state(v)
 		end
 	end
 
@@ -139,6 +151,21 @@ function Container:capture_events(hit)
 		self.mouse_in = true
 		self:trigger('mousein')
 		Gui.last_mouse_element = self
+	end
+
+	if hit then
+		local clipping_parent = self:get_clip_parent()
+		if clipping_parent then
+			local parent_hit = Gui.hit_test(
+				MouseX(),
+				MouseY(),
+				clipping_parent.absolute_coords.top_left.x,
+				clipping_parent.absolute_coords.top_left.y,
+				clipping_parent.absolute_coords.bottom_right.x,
+				clipping_parent.absolute_coords.bottom_right.y
+			)
+			hit = parent_hit
+		end
 	end
 
 	if hit then
@@ -172,15 +199,11 @@ function Container:add_children(children)
 	_.each(children, function(x) self:add_child(x) end, self)
 end
 
-function Container:pre_init(layout_manager)
+function Container:init(layout_manager)
 	self.apply_states = {}
 	self.remove_states = {}
 	self.zindex = self.parent and self.parent.zindex + 1 or 1
 	layout_manager:layout(self)
-	_.each(self.children, function(x) x:pre_init(layout_manager) end)
-end
-
-function Container:init(layout_manager)
 	self:set_states()
 	layout_manager:layout(self)
 	_.each(self.children, function(x) x:init(layout_manager) end)
@@ -188,6 +211,7 @@ end
 
 function Container:pre_render(layout_manager)
 	self.zindex = self.parent and self.parent.zindex + 1 or 1
+	self:set_states()
 	layout_manager:layout(self)
 	_.each(self.children, function(x) x:pre_render(layout_manager) end)
 end
