@@ -4,6 +4,8 @@ require "scripts/table"
 require "scripts/hooks"
 require "lib/underscore"
 require "lib/lua_promise/src/promise"
+require "lib/lua_emitter/src/emitter"
+require "lib/tween/tween"
 require "lib/le_gui/src/util"
 require "lib/le_gui/src/background_renderer"
 require "lib/le_gui/src/border_renderer"
@@ -116,7 +118,8 @@ end
 
 function Gui:render()
 	SetBlend(1)
-	local sorted = _.sort(self.elements, function(x, y)
+	local visible = _.select(self.elements, function(x) return not x:is_hidden() end)
+	local sorted = _.sort(visible, function(x, y)
 		if x.zindex == y.zindex then
 			return x._identity < y._identity
 		else
@@ -170,7 +173,19 @@ function Gui:render()
 	SetBlend(0)
 end
 
+function Gui.animate(duration, subject, target, easing, callback)
+	local promise = Promise:new()
+	Gui.tween(duration, subject, target, easing, function(subject, target) 
+		if callback then callback(subject, target) end
+		promise:resolve(subject, target) 
+	end)
+	return promise
+end
+
+function Gui.noop() end
+
 local function on_flip()
+	Gui.tween.update(delta_time)
 	if # Gui.elements > 0 then
 		Gui:init()
 		Gui:capture_events()
@@ -181,6 +196,7 @@ end
 
 function Gui.setup(settings)
 	Gui.settings = settings
+	Gui.tween = Tween:new()
 	HideMouse()
 	mouse = mouse or Mouse:new()
 	AddHook("Flip", on_flip)

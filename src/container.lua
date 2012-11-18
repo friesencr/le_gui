@@ -29,7 +29,7 @@ function Container:new(values)
 		class = {},
 		state = {},
 		styles = {},
-		render_rows = {}
+		_show = true
 	}
 	setmetatable(obj, Container)
 
@@ -101,6 +101,70 @@ local function apply_mouse_states(self)
 		self:remove_state('active')
 	end
 
+end
+
+function Container:hide()
+	self._show = false
+end
+
+function Container:show()
+	self._show = true
+end
+
+function Container:is_hidden()
+	return self:find_self_or_parent(function(x) return x._show ~= true end) ~= nil
+end
+
+function Container:fade_in(duration, easing, callback)
+	callback = callback or Gui.noop
+	if self:is_hidden() then
+		self.styles.opacity = 0
+		self:show()
+		return self:animate(
+			duration or 400,
+			{ opacity = 1 },
+			easing,
+			function() callback() end
+		)
+	else
+		return false
+	end
+end
+
+function Container:fade_out(duration, easing, callback)
+	callback = callback or Gui.noop
+	if not self:is_hidden() then
+		return self:animate(
+			duration or 400,
+			{ opacity = 0 },
+			easing,
+			function() self:hide(); callback() end
+		)
+	else
+		return false
+	end
+end
+
+function Container:slide_out(duration, easing, callback)
+	callback = callback or Gui.noop
+	if not self:is_hidden() then
+		self.styles.opacity = 0
+		return self:animate(
+			duration or 400,
+			{ opacity = 0 },
+			easing,
+			function() self:hide(); callback() end
+		)
+	else
+		return false
+	end
+end
+
+function Container:animate(duration, target, easing, callback)
+	for k,v in pairs(target) do
+		self.styles[k] = self[k]
+	end
+	return Gui.animate(duration, self.styles, target, easing, callback)
 end
 
 function Container:add_state(state, priority)

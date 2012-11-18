@@ -134,7 +134,7 @@ function LayoutManager:offsets(e)
 end
 
 local function add_parent_val(e, prop, x)
-	if e.parent then
+	if e.parent and not e.parent.clip then
 		x.count = x.count + e.parent[prop]
 		x.count = x.count + e.parent['offset_' .. prop]
 		add_parent_val(e.parent, prop, x)

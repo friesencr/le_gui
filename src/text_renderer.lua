@@ -10,7 +10,7 @@ end
 function TextRenderer:draw_text(e)
 	self:calculate_text(e, e.adjusted_width)
 	if e.font then
-		SetFont(e.font)
+		SetFont(LoadFont(e.font))
 	end
 	if e.text then
 		assert(e.color)
