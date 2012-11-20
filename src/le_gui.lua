@@ -2,6 +2,8 @@ Gui = {}
 
 require "scripts/table"
 require "scripts/hooks"
+require "scripts/constants/keycodes"
+require "scripts/constants/engine_const"
 require "lib/underscore"
 require "lib/lua_promise/src/promise"
 require "lib/lua_emitter/src/emitter"
@@ -12,8 +14,11 @@ require "lib/le_gui/src/border_renderer"
 require "lib/le_gui/src/text_renderer"
 require "lib/le_gui/src/border_renderer"
 require "lib/le_gui/src/layout_manager"
+require "lib/le_gui/src/animatable"
+require "lib/le_gui/src/element_list"
 
 local _ = Underscore:new()
+local c = Gui.util.get_value
 
 Gui.id = 1
 Gui.elements = {}
@@ -85,13 +90,15 @@ function Gui:capture_events()
 		)
 	end
 
+	local controls = _.detect(self.elements, function(x) return x.eventable end) or {}
+
 	-- detect mouse click
-	local hit_element = _(self.elements):chain()
+	local hit_element = _(controls):chain()
 		:sort(function(x, y) return x.zindex > y.zindex end)
 		:detect(test)
 		:value()
 
-	_.each(self.elements, function(x) x:capture_events(x == hit_element) end)
+	_.each(controls, function(x) x:capture_events(x == hit_element) end)
 end
 
 function Gui.events:refresh()
@@ -118,14 +125,16 @@ end
 
 function Gui:render()
 	SetBlend(1)
-	local visible = _.select(self.elements, function(x) return not x:is_hidden() end)
+	local visible = _.select(self.elements, function(x) return x.renderable and not x:is_hidden() end)
+	assert(visible)
 	local sorted = _.sort(visible, function(x, y)
 		if x.zindex == y.zindex then
 			return x._identity < y._identity
 		else
 			return x.zindex < y.zindex
 		end
-	end)
+	end) or {}
+
 	_.each(sorted, function(x)
 		x:render(
 			Gui.border_renderer,
@@ -135,13 +144,13 @@ function Gui:render()
 	end)
 
 	_.each(sorted, function(x)
-		SetColor(Vec4(1,1,1,x.opacity))
+		SetColor(Vec4(1,1,1, c(x.opacity, x)))
 		SetBuffer(x:get_clip_buffer())
 		DrawImage(x.color_render,
 			x.clip_x,
-			x.height + x.clip_y,
-			x.width,
-			-x.height
+			c(x.height, x) + x.clip_y,
+			c(x.width, x),
+			-c(x.height, x)
 		)
 		if x.text then
 			DrawImage(x.text_render,
@@ -177,7 +186,7 @@ function Gui.animate(duration, subject, target, easing, callback)
 	local promise = Promise:new()
 	Gui.tween(duration, subject, target, easing, function(subject, target) 
 		if callback then callback(subject, target) end
-		promise:resolve(subject, target) 
+		promise:resolve(subject, target)
 	end)
 	return promise
 end
@@ -196,6 +205,7 @@ end
 
 function Gui.setup(settings)
 	Gui.settings = settings
+	Gui.stylesheets = {}
 	Gui.tween = Tween:new()
 	HideMouse()
 	mouse = mouse or Mouse:new()
@@ -207,4 +217,15 @@ function Gui.free()
 	RemoveHook("Flip", on_flip)
 end
 
-require "lib/le_gui/src/container"
+function Gui.attach_stylesheet(name, object)
+
+end
+
+function Gui.init_element(obj)
+	obj._identity = Gui.id
+	Gui.id = Gui.id + 1
+	table.insert(Gui.elements, obj)
+end
+
+require "lib/le_gui/src/element"
+require "lib/le_gui/src/control"

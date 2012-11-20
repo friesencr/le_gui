@@ -1,3 +1,5 @@
+local c = Gui.util.get_value
+
 TextRenderer = {}
 TextRenderer.__index = TextRenderer
 
@@ -10,20 +12,20 @@ end
 function TextRenderer:draw_text(e)
 	self:calculate_text(e, e.adjusted_width)
 	if e.font then
-		SetFont(LoadFont(e.font))
+		SetFont(LoadFont(c(e.font, e)))
 	end
 	if e.text then
 		assert(e.color)
-		SetColor(e.color)
+		SetColor(c(e.color, e))
 		-- only calculate if needed
 		-- render text
 		for y,line in ipairs(e.lines_of_text) do
 			local x_offset = 0
 			-- adjust for center align
-			if e.text_align == 'center' then
+			if c(e.text_align, e) == 'center' then
 				x_offset = (e.adjusted_width - line.width) / 2
 			-- adjust for right align
-			elseif e.text_align == 'right' then
+			elseif c(e.text_align, e) == 'right' then
 				x_offset = (e.adjusted_width - line.width)
 			end
 			-- render every word on line
@@ -41,8 +43,8 @@ function TextRenderer:calculate_text(e, width)
 	assert(e)
 	assert(width)
 	if not e.text then do return end end
-	if not Gui.util.compare_tables(e.text_cache, { e.text, width }) then
-		local words = Gui.util.str_split(e.text, ' ')
+	if not Gui.util.compare_tables(e.text_cache, { c(e.text, e), width }) then
+		local words = Gui.util.str_split(c(e.text, e), ' ')
 		local text_x = 0
 		local lines = {
 			word_count = 0
@@ -82,7 +84,7 @@ function TextRenderer:calculate_text(e, width)
 			text_x = text_x + text_width
 			e.lines_of_text = lines
 			e.text_cache = {
-				e.text,
+				c(e.text, e),
 				width
 			}
 		end

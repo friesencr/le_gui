@@ -1,3 +1,5 @@
+local c = Gui.util.get_value
+
 LayoutManager = {}
 LayoutManager.__index = LayoutManager
 
@@ -16,31 +18,31 @@ function LayoutManager:position(context, e)
 	assert(e)
 
 	if e.left then
-		e.x = e.left
+		e.x = c(e.left, e)
 	end
 
 	if e.top then
-		e.y = e.top
+		e.y = c(e.top, e)
 	end
 
 	if e.right then
 		if not e.left then
-			e.x = context.width - e.width - e.right
+			e.x = context.width - c(e.width, c) - c(e.right, e)
 		end
 	end
 
 	if e.bottom then
 		if not e.top then
-			e.y = context.height - e.height - e.bottom
+			e.y = context.height - c(e.height, e) - c(e.bottom, e)
 		end
 	end
 
 	if e.horizontal_align == 'left' then
 		e.x = 0
 	elseif e.horizontal_align == 'center' then
-		e.x = (context.width - e.width) / 2
+		e.x = (context.width - c(e.width, c)) / 2
 	elseif e.horizontal_align == 'right' then
-		e.x = context.width - e.width
+		e.x = context.width - c(e.width, c)
 	end
 
 	e.y = e.y or 0
@@ -92,7 +94,7 @@ end
 
 function LayoutManager:width(context, e)
 	if e.left and e.right then
-		e.width = context.width - e.right - e.left
+		e.width = context.width - c(e.right, e) - c(e.left, e)
 	elseif not e.width then
 		e.width = context.width
 	end
@@ -101,42 +103,42 @@ end
 function LayoutManager:height(context, e)
 	-- Calculate height
 	if e.top and e.bottom then
-		e.height = context.height - e.top - e.bottom
+		e.height = context.height - c(e.top, e) - c(e.bottom, e)
 	elseif not e.height then
 		e.height = context.height
 		if e.text then
 			self.text_renderer:calculate_text(e, e.adjusted_width)
-			e.height = e.line_height * # e.lines_of_text + e.padding_top
-				+ e.padding_bottom + e.border_width * 2
+			e.height = c(e.line_height, e) * # e.lines_of_text + c(e.padding_top, e)
+				+ c(e.padding_bottom, e) + c(e.border_width, e) * 2
 		end
 	end
 end
 
 function LayoutManager:adjusted_height(e)
 	-- Calculate adjusted height
-	e.adjusted_height = e.height -
-		e.padding_top -
-		e.padding_bottom -
-		e.border_width * 2
+	e.adjusted_height = c(e.height, e) -
+		c(e.padding_top, e) -
+		c(e.padding_bottom, e) -
+		c(e.border_width, e) * 2
 end
 
 function LayoutManager:adjusted_width(e)
 	-- Calculate adjusted width
-	e.adjusted_width = e.width -
-		e.padding_left -
-		e.padding_right -
-		e.border_width * 2
+	e.adjusted_width = c(e.width, e) -
+		c(e.padding_left, e) -
+		c(e.padding_right, e) -
+		c(e.border_width, e) * 2
 end
 
 function LayoutManager:offsets(e)
-	e.offset_x = e.border_width + e.padding_left
-	e.offset_y = e.border_width + e.padding_top
+	e.offset_x = c(e.border_width, e) + c(e.padding_left, e)
+	e.offset_y = c(e.border_width, e) + c(e.padding_top, e)
 end
 
 local function add_parent_val(e, prop, x)
 	if e.parent and not e.parent.clip then
-		x.count = x.count + e.parent[prop]
-		x.count = x.count + e.parent['offset_' .. prop]
+		x.count = x.count + c(e.parent[prop], e)
+		x.count = x.count + c(e.parent['offset_' .. prop], e)
 		add_parent_val(e.parent, prop, x)
 	else
 		return x
@@ -153,8 +155,8 @@ function LayoutManager:clip_position(e)
 end
 
 function LayoutManager:adjusted_position(e)
-	e.adjusted_x = e.x + e.offset_x
-	e.adjusted_y = e.y + e.offset_y
+	e.adjusted_x = c(e.x, e) + e.offset_x
+	e.adjusted_y = c(e.y, e) + e.offset_y
 end
 
 function LayoutManager:layout(e)
