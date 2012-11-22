@@ -50,16 +50,16 @@ local Control = {
 	end
 }
 
-setmetatable(Control, { __call = function(x, ...) return Control:new(...) end })
-
-function Control:new(values)
+function Control:new(name, values)
 	values = values or {}
-	local obj = Gui.Element(values)
+	local obj = Gui.Element(name, values)
 	Gui.util.table_merge(obj, Control)
 	obj.eventable = true
 	obj.new = nil
 	return obj
 end
+
+setmetatable(Control, { __call = function(x, ...) return Control:new(...) end })
 
 Gui.Control = Control
 

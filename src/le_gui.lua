@@ -90,7 +90,7 @@ function Gui:capture_events()
 		)
 	end
 
-	local controls = _.detect(self.elements, function(x) return x.eventable end) or {}
+	local controls = _.select(self.elements, function(x) return x.eventable end) or {}
 
 	-- detect mouse click
 	local hit_element = _(controls):chain()
@@ -192,6 +192,7 @@ function Gui.animate(duration, subject, target, easing, callback)
 end
 
 function Gui.noop() end
+function Gui.true_predicate() return true end
 
 local function on_flip()
 	Gui.tween.update(delta_time)
@@ -218,7 +219,27 @@ function Gui.free()
 end
 
 function Gui.attach_stylesheet(name, object)
+	Gui.stylesheets[name] = object
+	AppLog('Attaching stylesheet ' .. name)
+end
 
+function Gui.get_styles_from_stylesheet(element)
+	local names = _.map(element:get_parents(), function(x) return x.name end)
+	names = _.reverse(names)
+	local styles = {}
+	for style_sheet, values in pairs(Gui.stylesheets) do
+		local x = values
+		for i,name in ipairs(names) do
+			x = x[name]
+			if not x then break end
+		end
+		if x then
+			for i,v in ipairs(x) do
+				table.insert(styles, v)
+			end
+		end
+	end
+	return Gui.util.table_merge({}, unpack(styles))
 end
 
 function Gui.init_element(obj)

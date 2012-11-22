@@ -1,24 +1,49 @@
 local _ = Underscore:new()
 local c = Gui.util.get_value
 
+local function get_all_parents(element, names)
+	table.insert(names, element)
+	if element.parent then
+		get_all_parents(element.parent, names)
+	end
+end
+
+local styles_mt = {
+	__index = function(table, key)
+		return rawget(table._values, key)
+	end,
+	__newindex = function(table, key, value)
+		rawset(table._values, key, value)
+		rawset(table,'_changed',true)
+	end
+}
+
 local Element = {
 
-	apply_styles_and_classes = function(self)
-		Gui.util.table_merge(self, Gui.default_styles)
-		for i,class in ipairs(self.class) do
-			Gui.util.table_merge(self, class)
-		end
-		Gui.util.table_merge(self, rawget(self.styles, '_values'))
+	merge = function(self, ...)
+		Gui.util.table_merge(self, ...)
+	end
+
+	, initialize = function(self)
+		self:merge(Gui.get_styles_from_stylesheet(self) or {})
+		local _styles = self.styles
+		self.styles = { _values = {} }
+		setmetatable(self.styles, styles_mt)
+		self.merge(self.styles, _styles)
+		self:apply_styles_and_classes()
+	end
+
+	, apply_styles_and_classes = function(self)
+		self:merge(Gui.default_styles)
+		self:merge(unpack(self.class or {}))
+		self:merge(rawget(self.styles, '_values'))
 	end
 
 	, apply_state = function(self, state)
-
 		if self.state[state] then
-			Gui.util.table_merge(self, self.state[state])
+			self:merge(self.state[state])
 		end
-
-		Gui.util.table_merge(self, rawget(self.styles, '_values'))
-
+		self:merge(rawget(self.styles, '_values'))
 	end
 
 	, apply_mouse_states = function(self)
@@ -121,6 +146,7 @@ local Element = {
 		self:set_states()
 		layout_manager:layout(self)
 		_.each(self.children, function(x) x:init(layout_manager) end)
+		self:trigger('on_init')
 	end
 
 	, pre_render = function(self, layout_manager)
@@ -128,6 +154,7 @@ local Element = {
 		self:set_states()
 		layout_manager:layout(self)
 		_.each(self.children, function(x) x:pre_render(layout_manager) end)
+		self:trigger('on_pre_render')
 	end
 
 	, get_render_cache = function(self)
@@ -229,19 +256,32 @@ local Element = {
 
 	end
 
-}
+	, full_name = function(self)
+		local parents = self:get_parents()
+		local name = ''
+		for i,v in ipairs(parents) do
+			if i ~= 1 then name = name .. '.' end
+			name = name .. v.name
+		end
+		return name
+	end
 
-local styles_mt = {
-	__index = function(table, key)
-		return rawget(table._values, key)
-	end,
-	__newindex = function(table, key, value)
-		rawset(table._values, key, value)
-		rawset(table,'_changed',true)
+	, get_parents = function(self)
+		local parents = {}
+		get_all_parents(self, parents)
+		return parents
+	end
+
+	, set_parent = function(self, parent)
+		self.parent = parent
+		self:initialize()
+		if self.children then
+			_.each(self:find_children(), function(x) x:initialize() end)
+		end
 	end
 }
 
-function Element:new(values)
+function Element:new(name, values)
 	local obj = {
 		renderable = true,
 		parent = nil,
@@ -251,25 +291,18 @@ function Element:new(values)
 		class = {},
 		state = {},
 		styles = {},
-		_show = true
+		_show = true,
+		name = name
 	}
-
 	Emitter:new(obj)
-	Gui.util.table_merge(obj, Element)
-	Gui.util.table_merge(obj, Gui.default_styles)
-	Gui.util.table_merge(obj, Gui.ElementList())
-	Gui.util.table_merge(obj, Gui.Animatable)
-	if values then Gui.util.table_merge(obj, values) end
+	Element.merge(obj, Element)
+	obj:merge(Gui.ElementList())
+	obj:merge(Gui.Animatable)
+	obj:merge(Gui.Animatable)
+	if values then obj:merge(values) end
 	Gui.init_element(obj)
 	obj.new = nil
-
-	local _styles = obj.styles
-	obj.styles = { _values = {} }
-	setmetatable(obj.styles, styles_mt)
-	Gui.util.table_merge(obj.styles, _styles)
-
-	obj:apply_styles_and_classes()
-
+	obj:initialize()
 	return obj
 end
 
