@@ -22,6 +22,7 @@ local c = Gui.util.get_value
 
 Gui.id = 1
 Gui.elements = {}
+Gui.new_elements = {}
 Gui.background_renderer = BackgroundRenderer:new()
 Gui.border_renderer = BorderRenderer:new()
 Gui.text_renderer = TextRenderer:new()
@@ -53,7 +54,7 @@ Gui.default_styles = {
 	text_align = 'left',
 	text_offset_x = 0,
 	text_offset_y = 0,
-	clip = false
+	clip = false,
 }
 
 Gui.events = {
@@ -90,7 +91,7 @@ function Gui:capture_events()
 		)
 	end
 
-	local controls = _.select(self.elements, function(x) return x.eventable end) or {}
+	local controls = _.select(self.elements, function(x) return x.eventable and x.initialized end) or {}
 
 	-- detect mouse click
 	local hit_element = _(controls):chain()
@@ -120,12 +121,13 @@ function Gui:init()
 end
 
 function Gui:pre_render()
-	_.each(self.elements, function(x) x:pre_render(Gui.layout_manager) end)
+	local roots = _.select(self.elements, function(x) return not x.parent end)
+	_.each(roots, function(x) x:pre_render(Gui.layout_manager) end)
 end
 
 function Gui:render()
 	SetBlend(1)
-	local visible = _.select(self.elements, function(x) return x.renderable and not x:is_hidden() end)
+	local visible = _.select(self.elements, function(x) return x.initialized and x.renderable and not x:is_hidden() end)
 	assert(visible)
 	local sorted = _.sort(visible, function(x, y)
 		if x.zindex == y.zindex then
@@ -163,10 +165,9 @@ function Gui:render()
 	end)
 
 	_.each(sorted, function(x)
-		SetColor(Vec4(1,1,1,x.opacity))
-		SetBuffer(x:get_clip_buffer())
-
 		if x.clip then
+			SetColor(Vec4(1,1,1,x.opacity))
+			SetBuffer(x:get_clip_buffer())
 			DrawImage(GetColorBuffer(x.clip_buffer),
 				x.clip_x + x.offset_x,
 				x.adjusted_height + x.clip_y + x.offset_y,
@@ -210,7 +211,7 @@ function Gui.setup(settings)
 	Gui.tween = Tween:new()
 	HideMouse()
 	mouse = mouse or Mouse:new()
-	AddHook("Flip", on_flip)
+	AddHook("Flip", on_flip, 5)
 end
 
 function Gui.free()
@@ -246,6 +247,10 @@ function Gui.init_element(obj)
 	obj._identity = Gui.id
 	Gui.id = Gui.id + 1
 	table.insert(Gui.elements, obj)
+end
+
+function Gui.destroy_element(obj)
+	Gui.util.delete_item(Gui.elements, obj)
 end
 
 require "lib/le_gui/src/element"

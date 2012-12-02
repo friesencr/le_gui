@@ -89,10 +89,12 @@ local Element = {
 
 	, hide = function(self)
 		self._show = false
+		return self
 	end
 
 	, show = function(self)
 		self._show = true
+		return self
 	end
 
 	, is_hidden = function(self)
@@ -106,7 +108,7 @@ local Element = {
 			table.insert(self.apply_states, state)
 			self.current_state[state] = priority
 		end
-
+		return self
 	end
 
 	, remove_state = function(self, state)
@@ -114,39 +116,43 @@ local Element = {
 			table.insert(self.remove_states, state)
 			self.current_state[state] = nil
 		end
+		return self
 	end
 
 	, set_states = function(self)
+		if self.initialized then
+			self:apply_mouse_states()
 
-		self:apply_mouse_states()
+			if # self.remove_states > 0 or # self.apply_states > 0 then
+				self:apply_styles_and_classes()
 
-		if # self.remove_states > 0 or # self.apply_states > 0 then
-			self:apply_styles_and_classes()
+				local states = _.keys(self.current_state) or {}
+				local _self = self
+				states = _.sort(states, function(a,b) return _self.current_state[a] > _self.current_state[b] end)
 
-			local states = _.keys(self.current_state) or {}
-			local _self = self
-			states = _.sort(states, function(a,b) return _self.current_state[a] > _self.current_state[b] end)
-
-			for i,v in ipairs(states) do
-				self:apply_state(v)
+				for i,v in ipairs(states) do
+					self:apply_state(v)
+				end
 			end
-		end
 
-		if self.styles._changed then
-			rawset(self.styles,'_changed', false)
-			self:apply_styles_and_classes()
+			if self.styles._changed then
+				rawset(self.styles,'_changed', false)
+				self:apply_styles_and_classes()
+			end
 		end
 	end
 
 	, init = function(self, layout_manager)
+		self.initialized = true
 		self.apply_states = {}
 		self.remove_states = {}
 		self.zindex = self.parent and self.parent.zindex + 1 or 1
+		self:trigger('before_init')
 		layout_manager:layout(self)
 		self:set_states()
 		layout_manager:layout(self)
 		_.each(self.children, function(x) x:init(layout_manager) end)
-		self:trigger('on_init')
+		self:trigger('after_init')
 	end
 
 	, pre_render = function(self, layout_manager)
@@ -165,8 +171,6 @@ local Element = {
 			c(self.padding_left, self),
 			c(self.padding_top, self),
 			c(self.padding_bottom, self),
-			c(self.adjusted_height, self),
-			c(self.adjusted_width, self),
 			c(self.background_color, self),
 			c(self.background_image, self),
 			c(self.border_color, self),
@@ -176,10 +180,10 @@ local Element = {
 
 	, get_text_cache = function(self)
 		return {
-			c(self.adjusted_height, self),
-			c(self.adjusted_width, self),
+			self.adjusted_height,
+			self.adjusted_width,
 			c(self.text, self),
-			c(self.font, self),
+			self.font,
 			c(self.color, self),
 		}
 	end
@@ -195,7 +199,7 @@ local Element = {
 			if self.clip_buffer then
 				SetBuffer(self.clip_buffer)
 				SetColor(Vec4(0,0,0,0))
-				self.clip_buffer:Clear(BUFFER_COLOR)
+				ClearBuffer(BUFFER_COLOR)
 			end
 		end
 
@@ -209,7 +213,7 @@ local Element = {
 		if not Gui.util.compare_tables(self.render_cache, render_cache) then
 			SetBuffer(self.buffer)
 			SetColor(Vec4(0,0,0,0))
-			self.buffer:Clear(BUFFER_COLOR)
+			ClearBuffer(BUFFER_COLOR)
 			background_render:draw_background_color(self)
 			background_render:draw_background_image(self)
 			border_renderer:draw_border(self)
@@ -227,8 +231,7 @@ local Element = {
 		if not Gui.util.compare_tables(self.text_cache, text_cache) then
 			SetBuffer(self.text_buffer)
 			SetColor(Vec4(0,0,0,0))
-			ClearBuffer(self.text_buffer)
-			self.text_buffer:Clear(BUFFER_COLOR)
+			ClearBuffer(BUFFER_COLOR)
 			text_renderer:draw_text(self)
 			self.text_render = GetColorBuffer(self.text_buffer)
 			self.text_cache = text_cache
@@ -245,19 +248,27 @@ local Element = {
 	end
 
 	, destroy = function(self)
-
+		Gui.destroy_element(self)
+		if self.children then
+			for i,v in self.children do
+				v:destroy()
+			end
+		end
+		return self
 	end
 
 	, detach = function(self)
 
+		return self
 	end
 
 	, attach = function(self)
 
+		return self
 	end
 
 	, full_name = function(self)
-		local parents = self:get_parents()
+		local parents = _.reverse(self:get_parents())
 		local name = ''
 		for i,v in ipairs(parents) do
 			if i ~= 1 then name = name .. '.' end
@@ -292,12 +303,12 @@ function Element:new(name, values)
 		state = {},
 		styles = {},
 		_show = true,
+		initialized = false,
 		name = name
 	}
 	Emitter:new(obj)
 	Element.merge(obj, Element)
 	obj:merge(Gui.ElementList())
-	obj:merge(Gui.Animatable)
 	obj:merge(Gui.Animatable)
 	if values then obj:merge(values) end
 	Gui.init_element(obj)

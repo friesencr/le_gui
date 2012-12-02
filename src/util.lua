@@ -1,3 +1,6 @@
+local type_memo = {}
+setmetatable(type_memo, { __mode = "v" })
+
 local util = {
 
 	print_table = function(obj)
@@ -61,7 +64,12 @@ local util = {
 	end
 
 	, get_value = function(val, arg)
-		local t = type(val)
+		if not val then return val end
+		local t = type_memo[val]
+		if not t then
+			t = type(val)
+			type_memo[val] = t
+		end
 		if t == 'function' then
 			return val(arg)
 		else
@@ -69,6 +77,11 @@ local util = {
 		end
 	end
 
+	, delete_item = function(array, item)
+		for i,v in ipairs(array) do
+			if v == item then table.remove(array, i); break; end
+		end
+	end
 }
 
 Gui.util = util

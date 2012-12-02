@@ -160,6 +160,7 @@ function LayoutManager:adjusted_position(e)
 end
 
 function LayoutManager:layout(e)
+	if not e.initialized then do return end end
 	local context = {
 		height = e.parent and e.parent.adjusted_height or GraphicsHeight(),
 		width = e.parent and e.parent.adjusted_width or GraphicsWidth()

@@ -29,10 +29,12 @@ local ElementList = {
 		assert(child)
 		child:set_parent(self)
 		table.insert(self.children, child)
+		return self
 	end
 
 	, add_children = function(self, children)
 		_.each(children, function(x) self:add_child(x) end, self)
+		return self
 	end
 
 	, find_self_or_children = function(self, predicate)
