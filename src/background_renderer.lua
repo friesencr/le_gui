@@ -23,8 +23,15 @@ end
 
 function BackgroundRenderer:draw_background_image(e)
 	if e.background_image then
+		local t = type(e.background_image)
+		local texture
+		if t == 'string' then
+			texture = LoadTexture(c(e.background_image, e))
+		else
+			texture = e.background_image
+		end
 		SetColor(Vec4(1,1,1,1))
-		DrawImage(LoadTexture(c(e.background_image, e)),
+		DrawImage(texture,
 			0,
 			0,
 			c(e.width, e),

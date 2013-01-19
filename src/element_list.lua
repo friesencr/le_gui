@@ -38,11 +38,12 @@ local ElementList = {
 	end
 
 	, find_self_or_children = function(self, predicate)
-		error 'broken'
 		local result = { values = {}}
 		predicate = predicate or Gui.true_predicate
-		search_parents(self, result, predicate)
 		search_children(self, result, predicate)
+		if predicate(self) then
+			table.insert(result.values, self)
+		end
 		return result.values
 	end
 

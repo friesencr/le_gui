@@ -1,3 +1,5 @@
+AppLog('gui - initializing element')
+
 local _ = Underscore:new()
 local c = Gui.util.get_value
 
@@ -15,6 +17,7 @@ local styles_mt = {
 	__newindex = function(table, key, value)
 		rawset(table._values, key, value)
 		rawset(table,'_changed',true)
+		rawset(table.element, key, value)
 	end
 }
 
@@ -27,7 +30,7 @@ local Element = {
 	, initialize = function(self)
 		self:merge(Gui.get_styles_from_stylesheet(self) or {})
 		local _styles = self.styles
-		self.styles = { _values = {} }
+		self.styles = { _values = {}, element = self }
 		setmetatable(self.styles, styles_mt)
 		self.merge(self.styles, _styles)
 		self:apply_styles_and_classes()
@@ -143,24 +146,44 @@ local Element = {
 	end
 
 	, init = function(self, layout_manager)
-		self.initialized = true
+		if not self.initialized then
+			self.initialized = true
+			AppLog(self:full_name() .. ' initialized')
+		end
 		self.apply_states = {}
 		self.remove_states = {}
 		self.zindex = self.parent and self.parent.zindex + 1 or 1
-		self:trigger('before_init')
+		self:trigger('pre_init', nil, { no_bubble = true })
 		layout_manager:layout(self)
 		self:set_states()
 		layout_manager:layout(self)
 		_.each(self.children, function(x) x:init(layout_manager) end)
-		self:trigger('after_init')
+		if self.scrolling_x then
+			self.scrollbar_x:init(layout_manager)
+		end
+		if self.scrolling_y then
+			self.scrollbar_y:init(layout_manager)
+		end
+		layout_manager:inner_sizes(self)
+		self:trigger('init', nil, { no_bubble = true })
 	end
 
 	, pre_render = function(self, layout_manager)
-		self.zindex = self.parent and self.parent.zindex + 1 or 1
-		self:set_states()
-		layout_manager:layout(self)
-		_.each(self.children, function(x) x:pre_render(layout_manager) end)
-		self:trigger('on_pre_render')
+		if self.initialized then
+			self:trigger('pre_render', nil, { no_bubble = true })
+			self.zindex = self.parent and self.parent.zindex + 1 or 1
+			self:set_states()
+			layout_manager:inner_sizes(self)
+			self:calculate_scrollbars()
+			layout_manager:layout(self)
+			_.each(self.children, function(x) x:pre_render(layout_manager) end)
+			if self.scrolling_x then
+				self.scrollbar_x:pre_render(layout_manager)
+			end
+			if self.scrolling_y then
+				self.scrollbar_y:pre_render(layout_manager)
+			end
+		end
 	end
 
 	, get_render_cache = function(self)
@@ -189,52 +212,62 @@ local Element = {
 	end
 
 	, render = function(self, border_renderer, background_render, text_renderer)
-		if self.clip then
-			local clip_buffer_cache = { self.adjusted_width, self.adjusted_height }
-			if not Gui.util.compare_tables(self.clip_buffer_cache, clip_buffer_cache) then
-				self.clip_buffer = CreateBuffer(math.max(2, self.adjusted_width), math.max(2, self.adjusted_height), BUFFER_COLOR)
-				self.clip_buffer_cache = clip_buffer_cache
+		if self.initialized then
+			self:trigger('render', nil, { no_bubble = true })
+			if self.clip then
+				local clip_buffer_cache = { self.adjusted_width, self.adjusted_height }
+				if not Gui.util.compare_tables(self.clip_buffer_cache, clip_buffer_cache) then
+					self.clip_buffer = Gui.util.get_buffer(math.max(2, self.adjusted_width), math.max(2, self.adjusted_height), BUFFER_COLOR)
+					self.clip_buffer_cache = clip_buffer_cache
+				end
+
+				if self.clip_buffer then
+					SetBuffer(self.clip_buffer)
+					SetColor(Vec4(0,0,0,0))
+					ClearBuffer(BUFFER_COLOR)
+				end
 			end
 
-			if self.clip_buffer then
-				SetBuffer(self.clip_buffer)
+			local buffer_cache = { self.width, self.height }
+			if not Gui.util.compare_tables(self.buffer_cache, buffer_cache) then
+				self.buffer = Gui.util.get_buffer(math.max(2,self.width), math.max(2,self.height), BUFFER_COLOR)
+				self.buffer_cache = buffer_cache
+			end
+
+			local render_cache = self:get_render_cache()
+			if not Gui.util.compare_tables(self.render_cache, render_cache) then
+				SetBuffer(self.buffer)
 				SetColor(Vec4(0,0,0,0))
 				ClearBuffer(BUFFER_COLOR)
+				background_render:draw_background_color(self)
+				background_render:draw_background_image(self)
+				border_renderer:draw_border(self)
+				self.color_render = GetColorBuffer(self.buffer)
+				self.render_cache = render_cache
 			end
-		end
 
-		local buffer_cache = { self.width, self.height }
-		if not Gui.util.compare_tables(self.buffer_cache, buffer_cache) then
-			self.buffer = CreateBuffer(math.max(2,self.width), math.max(2,self.height), BUFFER_COLOR)
-			self.buffer_cache = buffer_cache
-		end
+			local text_buffer_cache = { self.adjusted_width, self.adjusted_height }
+			if not Gui.util.compare_tables( self.text_buffer_cache, text_buffer_cache ) then
+				self.text_buffer = Gui.util.get_buffer(math.max(2, self.adjusted_width), math.max(2,self.adjusted_height), BUFFER_COLOR)
+				self.text_buffer_cache = text_buffer_cache
+			end
 
-		local render_cache = self:get_render_cache()
-		if not Gui.util.compare_tables(self.render_cache, render_cache) then
-			SetBuffer(self.buffer)
-			SetColor(Vec4(0,0,0,0))
-			ClearBuffer(BUFFER_COLOR)
-			background_render:draw_background_color(self)
-			background_render:draw_background_image(self)
-			border_renderer:draw_border(self)
-			self.color_render = GetColorBuffer(self.buffer)
-			self.render_cache = render_cache
-		end
+			local text_cache = self:get_text_cache()
+			if not Gui.util.compare_tables(self.text_cache, text_cache) then
+				SetBuffer(self.text_buffer)
+				SetColor(Vec4(0,0,0,0))
+				ClearBuffer(BUFFER_COLOR)
+				text_renderer:draw_text(self)
+				self.text_render = GetColorBuffer(self.text_buffer)
+				self.text_cache = text_cache
+			end
 
-		local text_buffer_cache = { self.adjusted_width, self.adjusted_height }
-		if not Gui.util.compare_tables( self.text_buffer_cache, text_buffer_cache ) then
-			self.text_buffer = CreateBuffer(math.max(2, self.adjusted_width), math.max(2,self.adjusted_height), BUFFER_COLOR)
-			self.text_buffer_cache = text_buffer_cache
-		end
-
-		local text_cache = self:get_text_cache()
-		if not Gui.util.compare_tables(self.text_cache, text_cache) then
-			SetBuffer(self.text_buffer)
-			SetColor(Vec4(0,0,0,0))
-			ClearBuffer(BUFFER_COLOR)
-			text_renderer:draw_text(self)
-			self.text_render = GetColorBuffer(self.text_buffer)
-			self.text_cache = text_cache
+			if self.scrolling_x then
+				self.scrollbar_x:render(border_renderer, background_render, text_renderer)
+			end
+			if self.scrolling_y then
+				self.scrollbar_y:render(border_renderer, background_render, text_renderer)
+			end
 		end
 	end
 
@@ -248,22 +281,43 @@ local Element = {
 	end
 
 	, destroy = function(self)
-		Gui.destroy_element(self)
+		AppLog('destroying ' .. self:full_name())
+		if self.clip_buffer then self.clip_buffer:Free() end
+		if self.buffer then self.buffer:Free() end
+		if self.text_buffer then self.text_buffer:Free() end
+		if self.scrollbar_x then
+			self.scrollbar_x:destroy()
+			self.scrollbar_x = nil
+		end
+		if self.scrollbar_y then
+			self.scrollbar_y:destroy()
+			self.scrollbar_y = nil
+		end
 		if self.children then
-			for i,v in self.children do
+			for i,v in ipairs(self.children) do
 				v:destroy()
 			end
+			self.children = {}
+		end
+		Gui.destroy_element(self)
+		return self
+	end
+
+	, clear = function(self)
+		if self.children then
+			for i,v in ipairs(self.children) do
+				v:destroy()
+			end
+			self.children = {}
 		end
 		return self
 	end
 
 	, detach = function(self)
-
 		return self
 	end
 
 	, attach = function(self)
-
 		return self
 	end
 
@@ -272,7 +326,7 @@ local Element = {
 		local name = ''
 		for i,v in ipairs(parents) do
 			if i ~= 1 then name = name .. '.' end
-			name = name .. v.name
+			name = name .. v.name .. '[' .. v._identity .. ']'
 		end
 		return name
 	end
@@ -292,7 +346,10 @@ local Element = {
 	end
 }
 
-function Element:new(name, values)
+function Element:new(values)
+	if not values and name and type(name) == 'table' then
+		values = name
+	end
 	local obj = {
 		renderable = true,
 		parent = nil,
@@ -304,14 +361,17 @@ function Element:new(name, values)
 		styles = {},
 		_show = true,
 		initialized = false,
-		name = name
 	}
 	Emitter:new(obj)
 	Element.merge(obj, Element)
 	obj:merge(Gui.ElementList())
 	obj:merge(Gui.Animatable)
+	obj:merge(Gui.Scrollable)
 	if values then obj:merge(values) end
 	Gui.init_element(obj)
+	if not obj.name then
+		obj.name = obj._identity
+	end
 	obj.new = nil
 	obj:initialize()
 	return obj

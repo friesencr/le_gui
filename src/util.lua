@@ -79,8 +79,20 @@ local util = {
 
 	, delete_item = function(array, item)
 		for i,v in ipairs(array) do
-			if v == item then table.remove(array, i); break; end
+			if v._identity == item._identity then table.remove(array, i); break; end
 		end
+	end
+
+	, buffers = {}
+
+	, get_buffer = function(width, height)
+		local key = height .. '|' .. width
+		local buffer = Gui.util.buffers[key]
+		if not buffer then
+			buffer = CreateBuffer(width, height, BUFFER_COLOR)
+			Gui.util.buffers[key] = buffer
+		end
+		return buffer
 	end
 }
 

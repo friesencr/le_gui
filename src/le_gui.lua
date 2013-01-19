@@ -8,6 +8,7 @@ require "lib/underscore"
 require "lib/lua_promise/src/promise"
 require "lib/lua_emitter/src/emitter"
 require "lib/tween/tween"
+require "lib/le_gui/src/mouse"
 require "lib/le_gui/src/util"
 require "lib/le_gui/src/background_renderer"
 require "lib/le_gui/src/border_renderer"
@@ -15,6 +16,7 @@ require "lib/le_gui/src/text_renderer"
 require "lib/le_gui/src/border_renderer"
 require "lib/le_gui/src/layout_manager"
 require "lib/le_gui/src/animatable"
+require "lib/le_gui/src/scrollbars"
 require "lib/le_gui/src/element_list"
 
 local _ = Underscore:new()
@@ -55,6 +57,8 @@ Gui.default_styles = {
 	text_offset_x = 0,
 	text_offset_y = 0,
 	clip = false,
+	scroll_x = true,
+	scroll_y = true
 }
 
 Gui.events = {
@@ -178,8 +182,6 @@ function Gui:render()
 	end)
 
 	SetColor(Vec4(1,1,1,1))
-	SetBuffer(BackBuffer())
-	mouse:draw()
 	SetBlend(0)
 end
 
@@ -196,16 +198,25 @@ function Gui.noop() end
 function Gui.true_predicate() return true end
 
 local function on_flip()
-	Gui.tween.update(delta_time)
+	if delta_time then
+		Gui.tween.update(delta_time)
+	end
 	if # Gui.elements > 0 then
 		Gui:init()
 		Gui:capture_events()
 		Gui:pre_render()
 		Gui:render()
 	end
+	-- render mouse
+	SetColor(Vec4(1,1,1,1))
+	SetBlend(1)
+	SetBuffer(BackBuffer())
+	mouse:draw()
+	SetBlend(0)
 end
 
 function Gui.setup(settings)
+	AppLog('gui - initializing gui')
 	Gui.settings = settings
 	Gui.stylesheets = {}
 	Gui.tween = Tween:new()
@@ -255,3 +266,9 @@ end
 
 require "lib/le_gui/src/element"
 require "lib/le_gui/src/control"
+require "lib/le_gui/src/menu"
+require "lib/le_gui/src/menu_item"
+require "lib/le_gui/src/button"
+require "lib/le_gui/src/sprite_sheet"
+require "lib/le_gui/src/font_awesome"
+require "lib/le_gui/src/default_theme"

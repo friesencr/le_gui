@@ -1,3 +1,5 @@
+AppLog('gui - initializing control')
+
 local Control = {
 
 	capture_events = function(self, hit)
@@ -50,9 +52,9 @@ local Control = {
 	end
 }
 
-function Control:new(name, values)
+function Control:new(values)
 	values = values or {}
-	local obj = Gui.Element(name, values)
+	local obj = Gui.Element(values)
 	Gui.util.table_merge(obj, Control)
 	obj.eventable = true
 	obj.new = nil

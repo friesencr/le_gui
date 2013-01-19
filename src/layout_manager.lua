@@ -64,31 +64,41 @@ function LayoutManager:absolute_position(e)
 	e.absolute_y = absolute_y
 
 	-- Set Coordinates
-	local top_left = {
-		x = e.absolute_x,
-		y = e.absolute_y
+	e.relative_coords = {
+		top_left = {
+			x = e.x,
+			y = e.y
+		},
+		top_right = {
+			x = e.x + e.width - 1,
+			y = e.y
+		},
+		bottom_left = {
+			x = e.x,
+			y = e.y + e.height - 1
+		},
+		bottom_right = {
+			x = e.x + e.width - 1,
+			y = e.y + e.height - 1
+		}
 	}
-
-	local top_right = {
-		x = e.absolute_x + e.width - 1,
-		y = e.absolute_y
-	}
-
-	local bottom_left = {
-		x = e.absolute_x,
-		y = e.absolute_y + e.height - 1
-	}
-
-	local bottom_right = {
-		x = e.absolute_x + e.width - 1,
-		y = e.absolute_y + e.height - 1
-	}
-	-- add parent offset
 	e.absolute_coords = {
-		top_left = top_left,
-		top_right = top_right,
-		bottom_left = bottom_left,
-		bottom_right = bottom_right
+		top_left = {
+			x = e.absolute_x,
+			y = e.absolute_y
+		},
+		top_right = {
+			x = e.absolute_x + e.width - 1,
+			y = e.absolute_y
+		},
+		bottom_left = {
+			x = e.absolute_x,
+			y = e.absolute_y + e.height - 1
+		},
+		bottom_right = {
+			x = e.absolute_x + e.width - 1,
+			y = e.absolute_y + e.height - 1
+		}
 	}
 end
 
@@ -116,23 +126,31 @@ end
 
 function LayoutManager:adjusted_height(e)
 	-- Calculate adjusted height
-	e.adjusted_height = c(e.height, e) -
-		c(e.padding_top, e) -
-		c(e.padding_bottom, e) -
-		c(e.border_width, e) * 2
+	e.adjusted_height = c(e.height, e) - e.offset_height
 end
 
 function LayoutManager:adjusted_width(e)
 	-- Calculate adjusted width
-	e.adjusted_width = c(e.width, e) -
-		c(e.padding_left, e) -
-		c(e.padding_right, e) -
-		c(e.border_width, e) * 2
+	e.adjusted_width = c(e.width, e) - e.offset_width
 end
 
 function LayoutManager:offsets(e)
 	e.offset_x = c(e.border_width, e) + c(e.padding_left, e)
 	e.offset_y = c(e.border_width, e) + c(e.padding_top, e)
+	e.offset_left = e.offset_x
+	e.offset_top = e.offset_y
+	e.offset_right = c(e.border_width, e) + c(e.padding_right, e)
+	if e.scrolling_x and e.scrollbar_x.initialized then
+		self:layout(e.scrollbar_x)
+		e.offset_right = e.offset_right + e.scrollbar_x.width
+	end
+	e.offset_bottom = c(e.border_width, e) + c(e.padding_bottom, e)
+	if e.scrolling_y and e.scrollbar_y.initialized then
+		self:layout(e.scrollbar_y)
+		e.offset_bottom = e.offset_bottom + e.scrollbar_y.height
+	end
+	e.offset_height = e.offset_top + e.offset_bottom
+	e.offset_width = e.offset_left + e.offset_right
 end
 
 local function add_parent_val(e, prop, x)
@@ -159,17 +177,35 @@ function LayoutManager:adjusted_position(e)
 	e.adjusted_y = c(e.y, e) + e.offset_y
 end
 
+function LayoutManager:inner_sizes(e)
+	if not e.initialized then return end
+	local max_right, max_bottom = 0, 0
+	for i,v in ipairs(e.children) do
+		if v.initialized then
+			local br = v.relative_coords.bottom_right
+			if br.x > max_right then
+				max_right = br.x
+			end
+			if br.y > max_bottom then
+				max_bottom = br.y
+			end
+		end
+	end
+	e.inner_width = max_right
+	e.inner_height = max_bottom
+end
+
 function LayoutManager:layout(e)
-	if not e.initialized then do return end end
+	if not e.initialized then return end
 	local context = {
 		height = e.parent and e.parent.adjusted_height or GraphicsHeight(),
 		width = e.parent and e.parent.adjusted_width or GraphicsWidth()
 	}
+	self:offsets(e)
 	self:width(context, e)
 	self:adjusted_width(e)
 	self:height(context, e)
 	self:adjusted_height(e)
-	self:offsets(e)
 	self:position(context, e)
 	self:clip_position(e)
 	self:absolute_position(e)
